@@ -6,8 +6,8 @@ def test_splitter(
     dev, splitter
 ):
     partner_balances = 1_250_000 * 10 ** 18
-    admin_split = splitter.getSplits(1_250_000 * 10 ** 18).adminFeeSplits
-    bribe_split = splitter.getSplits(1_250_000 * 10 ** 18).bribeSplits
+    admin_split = splitter.getSplits().adminFeeSplits
+    bribe_split = splitter.getSplits().bribeSplits
     
     print('-- Admin Fees --')
     print(f'{admin_split[0] / 1e16:,.2f}% YBS')
