@@ -50,6 +50,7 @@ contract YCRVSplitter {
 
     IVault public rewardToken; // V3 vault
     IERC20 public adminFeeToken; // May or may not be crvUSD
+    bool public permissionlessSplitsAllowed;
     uint public ybsBribeRatio = 9e17;
     address public owner = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52;
     address public guardian = 0x4444AAAACDBa5580282365e25b16309Bd770ce4a;
@@ -57,6 +58,7 @@ contract YCRVSplitter {
     address[] public discretionaryGauges;
     address[] public ycrvGauges;
     address[] public partnerGauges;
+    mapping(address caller => bool approved) public approvedSplitCallers;
 
     event AdminFeeSplit(uint ybs, uint treasury, uint reminder);
     event BribeSplit(uint ybs, uint treasury, uint reminder);
@@ -104,12 +106,18 @@ contract YCRVSplitter {
     }
 
     function executeSplit() external {
+        require(
+            permissionlessSplitsAllowed ||
+            approvedSplitCallers[msg.sender] ||
+            msg.sender == owner ||
+            msg.sender == guardian
+        );
         (Split memory adminFeeSplits, Split memory bribeSplits) = getSplits();
         _claimAndSendAdminFees(adminFeeSplits);
         _sendBribes(bribeSplits);
     }
 
-    function executeManualSplit(Split memory adminFeeSplits, Split memory bribeSplits) external {
+    function executeManualSplit(Split memory adminFeeSplits, Split memory bribeSplits) external onlyOwner {
         uint total = adminFeeSplits.ybsRatio + adminFeeSplits.remainderRatio + adminFeeSplits.treasuryRatio;
         require(total == PRECISION, "adminFeeSplits sum !100%");
         total = bribeSplits.ybsRatio + bribeSplits.remainderRatio + bribeSplits.treasuryRatio;
@@ -272,6 +280,14 @@ contract YCRVSplitter {
         require(_treasury != address(0) && _remainderTarget != address(0), "Invalid target");
         recipients.treasury = _treasury;
         recipients.remainderTarget = _remainderTarget;
+    }
+
+    function setPermissionlessSplitsAllowed(bool _allowed) external onlyOwner{
+        permissionlessSplitsAllowed = _allowed;
+    }
+
+    function setApprovedSplitCaller(address _caller, bool _approved) external onlyOwner {
+        approvedSplitCallers[_caller] = _approved;
     }
 
     function _getProxy() internal returns (IProxy) {
