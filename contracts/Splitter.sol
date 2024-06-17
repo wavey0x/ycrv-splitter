@@ -14,6 +14,7 @@ interface IGaugeController {
 
 interface IProxy {
     function claim(address recipient) external;
+    function feeRecipient() external view returns (address);
 }
 
 interface IVoter {
@@ -30,6 +31,7 @@ interface IVault {
     function asset() external view returns (IERC20);
     function approve(address, uint) external returns (bool);
     function transfer(address, uint) external returns (bool);
+    function transferFrom(address, address, uint) external returns (bool);
     function balanceOf(address) external view returns (uint);
 }
 
@@ -48,10 +50,9 @@ contract YCRVSplitter {
     IERC20 public constant CRVUSD = IERC20(0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E);
     IDistributor public constant REWARD_DISTRIBUTOR = IDistributor(0xB226c52EB411326CdB54824a88aBaFDAAfF16D3d);
 
-    IVault public rewardToken; // V3 vault
-    IERC20 public adminFeeToken; // May or may not be crvUSD
+    IVault public immutable REWARD_TOKEN; // V3 vault
     bool public permissionlessSplitsAllowed;
-    uint public ybsBribeRatio = 9e17;
+    uint public ybsVoteIncentiveRatio = 9e17;
     address public owner = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52;
     address public guardian = 0x4444AAAACDBa5580282365e25b16309Bd770ce4a;
     Recipients recipients;
@@ -60,8 +61,8 @@ contract YCRVSplitter {
     address[] public partnerGauges;
     mapping(address caller => bool approved) public approvedSplitCallers;
 
-    event AdminFeeSplit(uint ybs, uint treasury, uint reminder);
-    event BribeSplit(uint ybs, uint treasury, uint reminder);
+    event AdminFeeSplit(uint ybs, uint treasury, uint remainder);
+    event VoteIncentiveSplit(uint ybs, uint treasury, uint remainder);
 
     struct BaseBalances {
         uint ybs;
@@ -89,8 +90,9 @@ contract YCRVSplitter {
         discretionaryGauges.push(0x138cC21D15b7A06F929Fc6CFC88d2b830796F4f1); // ETH/yETH
         ycrvGauges.push(0xEEBC06d495c96E57542A6d829184A907A02ef602); // CRV/yCRV
         partnerGauges.push(0x6070fBD4E608ee5391189E7205d70cc4A274c017); // Threshold
-        rewardToken = IVault(address(REWARD_DISTRIBUTOR.rewardToken()));
-        rewardToken.approve(address(REWARD_DISTRIBUTOR), type(uint).max);
+        REWARD_TOKEN = IVault(address(REWARD_DISTRIBUTOR.rewardToken()));
+        REWARD_TOKEN.approve(address(REWARD_DISTRIBUTOR), type(uint).max);
+        CRVUSD.approve(address(REWARD_TOKEN), type(uint).max);
         recipients.treasury = 0x93A62dA5a14C80f265DAbC077fCEE437B1a0Efde;
         recipients.remainderTarget = 0x794f80E899c772de9E326eC83cCfD8D94e208B49;
     }
@@ -112,60 +114,73 @@ contract YCRVSplitter {
             msg.sender == owner ||
             msg.sender == guardian
         );
-        (Split memory adminFeeSplits, Split memory bribeSplits) = getSplits();
-        _claimAndSendAdminFees(adminFeeSplits);
-        _sendBribes(bribeSplits);
+        (Split memory adminFeeSplits, Split memory voteIncentiveSplits) = getSplits();
+        uint amount = _claimAdminFees();
+        _sendAdminFees(amount, adminFeeSplits);
+        _sendVoteIncentives(voteIncentiveSplits);
     }
 
-    function executeManualSplit(Split memory adminFeeSplits, Split memory bribeSplits) external onlyOwner {
+    function executeManualSplit(Split memory adminFeeSplits, Split memory voteIncentiveSplits) external onlyOwner {
         uint total = adminFeeSplits.ybsRatio + adminFeeSplits.remainderRatio + adminFeeSplits.treasuryRatio;
         require(total == PRECISION, "adminFeeSplits sum !100%");
-        total = bribeSplits.ybsRatio + bribeSplits.remainderRatio + bribeSplits.treasuryRatio;
-        require(total == PRECISION, "bribeSplits sum !100%");
-        _claimAndSendAdminFees(adminFeeSplits);
-        _sendBribes(bribeSplits);
+        total = voteIncentiveSplits.ybsRatio + voteIncentiveSplits.remainderRatio + voteIncentiveSplits.treasuryRatio;
+        require(total == PRECISION, "voteIncentiveSplits sum !100%");
+        uint amount = _claimAdminFees();
+        _sendAdminFees(amount, adminFeeSplits);
+        _sendVoteIncentives(voteIncentiveSplits);
     }
 
-    function _sendBribes(Split memory bribeSplits) internal returns(uint amount) {
+    function depositAdminFeesAndSplit(uint _amount) external onlyAdmins {
+        CRVUSD.transferFrom(msg.sender, address(this), _amount);
+        (Split memory adminFeeSplits, Split memory voteIncentiveSplits) = getSplits();
+        _sendAdminFees(_amount, adminFeeSplits);
+        _sendVoteIncentives(voteIncentiveSplits);
+    }
+
+    function _sendVoteIncentives(Split memory voteIncentiveSplits) internal returns(uint amount) {
         amount = _depositToVault(CRVUSD.balanceOf(address(this)));
         if (amount == 0) return 0;
-        if (bribeSplits.ybsRatio > 0) {
-            bribeSplits.ybsRatio = bribeSplits.ybsRatio * amount / PRECISION;
-            REWARD_DISTRIBUTOR.depositReward(bribeSplits.ybsRatio);
+        if (voteIncentiveSplits.ybsRatio > 0) {
+            voteIncentiveSplits.ybsRatio = voteIncentiveSplits.ybsRatio * amount / PRECISION;
+            REWARD_DISTRIBUTOR.depositReward(voteIncentiveSplits.ybsRatio);
         }
-        if (bribeSplits.treasuryRatio > 0) {
-            bribeSplits.treasuryRatio = bribeSplits.treasuryRatio * amount / PRECISION;
-            rewardToken.transfer(recipients.treasury, bribeSplits.treasuryRatio);
+        if (voteIncentiveSplits.treasuryRatio > 0) {
+            voteIncentiveSplits.treasuryRatio = voteIncentiveSplits.treasuryRatio * amount / PRECISION;
+            REWARD_TOKEN.transfer(recipients.treasury, voteIncentiveSplits.treasuryRatio);
         }
-        if (bribeSplits.remainderRatio > 0) {
-            bribeSplits.remainderRatio = bribeSplits.remainderRatio * amount / PRECISION;
-            rewardToken.transfer(recipients.remainderTarget, bribeSplits.remainderRatio);
+        if (voteIncentiveSplits.remainderRatio > 0) {
+            voteIncentiveSplits.remainderRatio = voteIncentiveSplits.remainderRatio * amount / PRECISION;
+            REWARD_TOKEN.transfer(recipients.remainderTarget, voteIncentiveSplits.remainderRatio);
         }
-        emit BribeSplit(bribeSplits.ybsRatio, bribeSplits.treasuryRatio, bribeSplits.remainderRatio);
+        emit VoteIncentiveSplit(voteIncentiveSplits.ybsRatio, voteIncentiveSplits.treasuryRatio, voteIncentiveSplits.remainderRatio);
         return amount;
     }
 
-    function _claimAndSendAdminFees(Split memory adminFeeSplits) internal returns (uint amount) {
-        IERC20 _adminFeeToken = adminFeeToken;
-        amount = adminFeeToken.balanceOf(address(this));
-        _getProxy().claim(address(this));
-        amount = adminFeeToken.balanceOf(address(this)) - amount;
-        amount = _depositToVault(amount);
-        if (amount == 0) return 0;
+    function _claimAdminFees() internal returns (uint amount) {
+        IProxy proxy = _getProxy();
+        if (proxy.feeRecipient() != address(this)) return 0;
+        amount = REWARD_TOKEN.balanceOf(address(this));
+        proxy.claim(address(this));
+        return REWARD_TOKEN.balanceOf(address(this)) - amount;
+    }
+
+    function _sendAdminFees(uint _amount, Split memory adminFeeSplits) internal returns (uint) {
+        _amount = _depositToVault(_amount);
+        if (_amount == 0) return 0;
         if (adminFeeSplits.ybsRatio > 0) {
-            adminFeeSplits.ybsRatio = adminFeeSplits.ybsRatio * amount;
+            adminFeeSplits.ybsRatio = adminFeeSplits.ybsRatio * _amount / PRECISION;
             REWARD_DISTRIBUTOR.depositReward(adminFeeSplits.ybsRatio);
         }
         if (adminFeeSplits.treasuryRatio > 0) {
-            adminFeeSplits.treasuryRatio = adminFeeSplits.treasuryRatio * amount;
-            rewardToken.transfer(recipients.treasury, adminFeeSplits.treasuryRatio);
+            adminFeeSplits.treasuryRatio = adminFeeSplits.treasuryRatio * _amount / PRECISION;
+            REWARD_TOKEN.transfer(recipients.treasury, adminFeeSplits.treasuryRatio);
         }
         if (adminFeeSplits.remainderRatio > 0) {
-            adminFeeSplits.remainderRatio = adminFeeSplits.remainderRatio * amount;
-            rewardToken.transfer(recipients.remainderTarget, adminFeeSplits.remainderRatio);
+            adminFeeSplits.remainderRatio = adminFeeSplits.remainderRatio * _amount / PRECISION;
+            REWARD_TOKEN.transfer(recipients.remainderTarget, adminFeeSplits.remainderRatio);
         }
         emit AdminFeeSplit(adminFeeSplits.ybsRatio, adminFeeSplits.treasuryRatio, adminFeeSplits.remainderRatio);
-        return amount;
+        return _amount;
     }
 
     function yearnVeBalance() internal view returns (uint) {
@@ -191,27 +206,28 @@ contract YCRVSplitter {
         adminFeeSplits.remainderRatio = PRECISION - (adminFeeSplits.ybsRatio);
     }
 
-    function getBribeSplitRatios(BaseBalances memory base) internal view returns (Split memory bribeSplits) {
-        uint nonBribeVotes = getDiscretionaryVotes() + getYcrvVotes() + getPartnerVotes();
-        uint totalBribeVotes = base.veTotal - nonBribeVotes;
-        if (totalBribeVotes == 0) return Split(0, 0, PRECISION);
-        bribeSplits.ybsRatio = base.ybs * ybsBribeRatio / totalBribeVotes;
-        bribeSplits.treasuryRatio = PRECISION * (base.untokenized - getDiscretionaryVotes()) / totalBribeVotes;
-        bribeSplits.remainderRatio = PRECISION - bribeSplits.ybsRatio - bribeSplits.treasuryRatio;
+    function getVoteIncentiveSplitRatios(BaseBalances memory base) internal view returns (Split memory voteIncentiveSplits) {
+        uint nonVoteIncentiveVotes = getDiscretionaryVotes() + getYcrvVotes() + getPartnerVotes();
+        uint totalVoteIncentiveVotes = base.veTotal - nonVoteIncentiveVotes;
+        if (totalVoteIncentiveVotes == 0) return Split(0, 0, PRECISION);
+        voteIncentiveSplits.ybsRatio = base.ybs * ybsVoteIncentiveRatio / totalVoteIncentiveVotes;
+        voteIncentiveSplits.treasuryRatio = PRECISION * (base.untokenized - getDiscretionaryVotes()) / totalVoteIncentiveVotes;
+        voteIncentiveSplits.remainderRatio = PRECISION - voteIncentiveSplits.ybsRatio - voteIncentiveSplits.treasuryRatio;
     }
 
-    function getSplits() public view returns (Split memory adminFeeSplits, Split memory bribeSplits) {
+    function getSplits() public view returns (Split memory adminFeeSplits, Split memory voteIncentiveSplits) {
         BaseBalances memory base = getBaseBalances();
         adminFeeSplits = getAdminFeeSplitRatios(base);
-        bribeSplits = getBribeSplitRatios(base);
+        voteIncentiveSplits = getVoteIncentiveSplitRatios(base);
     }
 
     /// @dev Deposits full balance of crvUSD
-    /// @param amount Amount to deposit
+    /// @param _amount Amount to deposit
     /// @return amount Total balance of reward token
-    function _depositToVault(uint amount) internal returns(uint) {
-        rewardToken.deposit(amount, address(this));
-        return rewardToken.balanceOf(address(this));
+    function _depositToVault(uint _amount) internal returns(uint) {
+        if (_amount == 0) return 0;
+        REWARD_TOKEN.deposit(_amount, address(this));
+        return REWARD_TOKEN.balanceOf(address(this));
     }
 
     function getDiscretionaryVotes() public view returns (uint) {
@@ -266,10 +282,6 @@ contract YCRVSplitter {
     function setPartnerGauges(address[] memory _gauges) external onlyAdmins {
         delete partnerGauges;
         partnerGauges = _gauges;
-    }
-
-    function setAdminFeeToken(IERC20 _adminFeeToken) external onlyAdmins {
-        adminFeeToken = _adminFeeToken;
     }
 
     function sweep(IERC20 token, uint amount) external onlyOwner {
