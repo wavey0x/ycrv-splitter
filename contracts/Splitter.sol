@@ -51,6 +51,7 @@ contract YCRVSplitter {
     IDistributor public constant REWARD_DISTRIBUTOR = IDistributor(0xB226c52EB411326CdB54824a88aBaFDAAfF16D3d);
 
     IVault public immutable REWARD_TOKEN; // V3 vault
+    address public immutable RECEIVER;
     bool public permissionlessSplitsAllowed;
     uint public ybsVoteIncentiveRatio = 9e17;
     address public owner = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52;
@@ -85,7 +86,7 @@ contract YCRVSplitter {
         address remainderTarget;
     }
 
-    constructor() public {
+    constructor(address _receiver) public {
         discretionaryGauges.push(0x05255C5BD33672b9FEA4129C13274D1E6193312d); // YFI/ETH
         discretionaryGauges.push(0x138cC21D15b7A06F929Fc6CFC88d2b830796F4f1); // ETH/yETH
         ycrvGauges.push(0xEEBC06d495c96E57542A6d829184A907A02ef602); // CRV/yCRV
@@ -95,6 +96,7 @@ contract YCRVSplitter {
         CRVUSD.approve(address(REWARD_TOKEN), type(uint).max);
         recipients.treasury = 0x93A62dA5a14C80f265DAbC077fCEE437B1a0Efde;
         recipients.remainderTarget = 0x794f80E899c772de9E326eC83cCfD8D94e208B49;
+        RECEIVER = _receiver;
     }
 
     modifier onlyOwner() {
@@ -138,6 +140,8 @@ contract YCRVSplitter {
     }
 
     function _sendVoteIncentives(Split memory voteIncentiveSplits) internal returns(uint amount) {
+        amount = CRVUSD.balanceOf(RECEIVER);
+        CRVUSD.transferFrom(RECEIVER, address(this), amount);
         amount = _depositToVault(CRVUSD.balanceOf(address(this)));
         if (amount == 0) return 0;
         if (voteIncentiveSplits.ybsRatio > 0) {
