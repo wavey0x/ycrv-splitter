@@ -4,7 +4,7 @@ WEEK = 60 * 60 * 24 * 7
 
 def test_splitter(
     dev, splitter, crvusd_whale, ylockers_ms, gov, crvusd, yvcrvusd, reward_distributor,
-    receiver1, reward_token, new_fee_distributor, curve_dao, voter
+    receiver1, reward_token, new_fee_distributor, curve_dao, voter, mock_proxy
 ):
     partner_balances = 1_250_000 * 10 ** 18
     admin_split = splitter.getSplits().adminFeeSplits
@@ -43,14 +43,17 @@ def test_splitter(
     # Test Admin Fees Proper Flow
     new_fee_distributor.toggle_allow_checkpoint_token(sender=curve_dao)
     crvusd.transfer(new_fee_distributor, 100_000 * 10 ** 18, sender=crvusd_whale)
-    assert False
     chain.pending_timestamp += WEEK
     chain.mine()
     new_fee_distributor.checkpoint_token(sender=dev)
     chain.pending_timestamp += WEEK
     chain.mine()
+
+    
     tx = new_fee_distributor.claim(voter,sender=dev)
 
+    # voter.setStrategy(mock_proxy, sender=gov)
+    mock_proxy
     assert False
 
     # Test Vote Incentive Proper Flow

@@ -14,7 +14,7 @@ interface IGaugeController {
 
 interface IProxy {
     function claim(address recipient) external;
-    function feeRecipient() external view returns (address);
+    function approvedAdminFeeClaimers(address claimer) external view returns (bool approved);
 }
 
 interface IVoter {
@@ -162,7 +162,7 @@ contract YCRVSplitter {
 
     function _claimAdminFees() internal returns (uint amount) {
         IProxy proxy = _getProxy();
-        if (proxy.feeRecipient() != address(this)) return 0;
+        if (!proxy.approvedAdminFeeClaimers(address(this))) return 0;
         amount = REWARD_TOKEN.balanceOf(address(this));
         proxy.claim(address(this));
         return REWARD_TOKEN.balanceOf(address(this)) - amount;

@@ -20,6 +20,17 @@ def splitter(project, dev, receiver1, ylockers_ms):
     yield splitter
 
 @pytest.fixture(scope="session")
+def mock_proxy(accounts, project, splitter):
+    owner = accounts[splitter.owner()]
+    owner.balance += 10**18
+    mock_proxy = owner.deploy(project.StrategyProxy)
+    voter = Contract(mock_proxy.proxy())
+    gov = accounts[voter.governance()]
+    gov.balance += 10 ** 18
+    voter.setStrategy(mock_proxy, sender=gov)
+    yield mock_proxy
+
+@pytest.fixture(scope="session")
 def reward_distributor(splitter):
     yield Contract(splitter.REWARD_DISTRIBUTOR())
 

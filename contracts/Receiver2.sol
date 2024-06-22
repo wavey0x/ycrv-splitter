@@ -2,22 +2,34 @@
 pragma solidity 0.8.19;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+interface IDistributor {
+    function depositReward(uint amount) external;
+    function rewardToken() external view returns (IERC20);
+}
 
-contract Receiver1 {
+contract Receiver2 {
     using SafeERC20 for IERC20;
 
+    IDistributor public immutable DISTRIBUTOR;
+    IERC20 public immutable REWARD_TOKEN;
     address public owner;
     address public pendingOwner;
     address public guardian;
+    bool public paused;
+    uint public performanceFee;
+    address public feeRecipient;
     mapping(address spender => bool approved) public approvedSpenders;
 
     event SpenderApproved(address indexed spender, bool indexed approved);
     event OwnershipTransferred(address indexed pendingOwner);
     event GuardianSet(address indexed guardian);
 
-    constructor(address _owner, address _guardian) {
+    constructor(address _owner, address _guardian, IDistributor _distributor) {
         owner = _owner;
         guardian = _guardian;
+        DISTRIBUTOR = _distributor;
+        REWARD_TOKEN = _distributor.rewardToken();
+        REWARD_TOKEN.approve(address(DISTRIBUTOR), type(uint).max);
     }
 
     modifier _onlyOwner() {
@@ -32,6 +44,22 @@ contract Receiver1 {
             "!Admin"
         );
         _;
+    }
+
+    /**
+        @notice Permissionless deposit into rewards contract.
+        @return amount amount of YVCRVUSD tokens added to staker.
+    */
+    function depositRewards() external returns (uint amount) {
+        require(!paused, "paused");
+        amount = REWARD_TOKEN.balanceOf(address(this));
+        if (amount == 0) return 0;
+        uint fee = (amount * performanceFee) / 10_000;
+        if (fee > 0) {
+            amount -= fee;
+            REWARD_TOKEN.safeTransfer(feeRecipient, fee);
+        }
+        if (amount > 0) DISTRIBUTOR.depositReward(amount);
     }
 
     function transferToken(
@@ -63,13 +91,26 @@ contract Receiver1 {
         token.safeTransfer(receiver, amount);
     }
 
-    function setApprovedSpender(address _spender, bool _approved) external _onlyAdmins() {
+    function setApprovedSpender(address _spender, bool _approved) external _onlyOwner() {
         if (msg.sender == guardian) {
             require(_approved == false, "Guardian may only disable");
         }
         require(approvedSpenders[_spender] != _approved, "!Update");
         approvedSpenders[_spender] = _approved;
         emit SpenderApproved(_spender, _approved);
+    }
+
+    function setPaused(bool _paused) external _onlyAdmins() {
+        paused = _paused;
+    }
+
+    function setPerformanceFee(uint _performanceFee) external _onlyOwner() {
+        require(_performanceFee <= 10_000, "Too high");
+        performanceFee = _performanceFee;
+    }
+
+    function setFeeRecipient(address _feeRecipient) external _onlyOwner {
+        feeRecipient = _feeRecipient;
     }
 
     function setOwner(address _pendingOwner) external _onlyOwner {
