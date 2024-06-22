@@ -16,7 +16,7 @@ contract Receiver2 {
     address public pendingOwner;
     address public guardian;
     bool public paused;
-    uint public performanceFee;
+    uint public performanceFee = 1_000;
     address public feeRecipient;
     mapping(address spender => bool approved) public approvedSpenders;
 
@@ -24,9 +24,15 @@ contract Receiver2 {
     event OwnershipTransferred(address indexed pendingOwner);
     event GuardianSet(address indexed guardian);
 
-    constructor(address _owner, address _guardian, IDistributor _distributor) {
+    constructor(
+        address _owner, 
+        address _guardian,
+        address _feeRecipient,
+        IDistributor _distributor
+    ) {
         owner = _owner;
         guardian = _guardian;
+        feeRecipient = _feeRecipient;
         DISTRIBUTOR = _distributor;
         REWARD_TOKEN = _distributor.rewardToken();
         REWARD_TOKEN.approve(address(DISTRIBUTOR), type(uint).max);

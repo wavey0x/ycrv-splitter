@@ -13,17 +13,16 @@ interface IGaugeController {
 }
 
 interface IProxy {
-    function claim(address recipient) external;
-    function approvedAdminFeeClaimers(address claimer) external view returns (bool approved);
+    function claimAdminFees() external returns (uint);
+    function canClaim() external view returns (bool);
 }
 
 interface IVoter {
     function strategy() external view returns(IProxy);
 }
 
-interface IDistributor {
-    function depositReward(uint amount) external;
-    function rewardToken() external view returns (IERC20);
+interface IReceiver {
+    function transferToken(address token, address receiver, uint amount) external;
 }
 
 interface IVault {
@@ -31,7 +30,6 @@ interface IVault {
     function asset() external view returns (IERC20);
     function approve(address, uint) external returns (bool);
     function transfer(address, uint) external returns (bool);
-    function transferFrom(address, address, uint) external returns (bool);
     function balanceOf(address) external view returns (uint);
 }
 
@@ -48,10 +46,9 @@ contract YCRVSplitter {
     IERC20 public constant YCRV = IERC20(0xFCc5c47bE19d06BF83eB04298b026F81069ff65b);
     IERC20 public constant YVECRV = IERC20(0xc5bDdf9843308380375a611c18B50Fb9341f502A);
     IERC20 public constant CRVUSD = IERC20(0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E);
-    IDistributor public constant REWARD_DISTRIBUTOR = IDistributor(0xB226c52EB411326CdB54824a88aBaFDAAfF16D3d);
-
-    IVault public immutable REWARD_TOKEN; // V3 vault
-    address public immutable RECEIVER;
+    IVault public constant REWARD_TOKEN = IVault(0xBF319dDC2Edc1Eb6FDf9910E39b37Be221C8805F); // V3 vault
+    
+    address public immutable RECEIVER1;
     bool public permissionlessSplitsAllowed;
     uint public ybsVoteIncentiveRatio = 9e17;
     address public owner = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52;
@@ -82,21 +79,23 @@ contract YCRVSplitter {
     }
 
     struct Recipients {
+        address ybs;
         address treasury;
         address remainderTarget;
     }
 
-    constructor(address _receiver) public {
+    constructor(address _receiver1, address _receiver2) public {
         discretionaryGauges.push(0x05255C5BD33672b9FEA4129C13274D1E6193312d); // YFI/ETH
         discretionaryGauges.push(0x138cC21D15b7A06F929Fc6CFC88d2b830796F4f1); // ETH/yETH
         ycrvGauges.push(0xEEBC06d495c96E57542A6d829184A907A02ef602); // CRV/yCRV
         partnerGauges.push(0x6070fBD4E608ee5391189E7205d70cc4A274c017); // Threshold
-        REWARD_TOKEN = IVault(address(REWARD_DISTRIBUTOR.rewardToken()));
-        REWARD_TOKEN.approve(address(REWARD_DISTRIBUTOR), type(uint).max);
-        CRVUSD.approve(address(REWARD_TOKEN), type(uint).max);
+        
+        recipients.ybs = _receiver2;
         recipients.treasury = 0x93A62dA5a14C80f265DAbC077fCEE437B1a0Efde;
         recipients.remainderTarget = 0x794f80E899c772de9E326eC83cCfD8D94e208B49;
-        RECEIVER = _receiver;
+        RECEIVER1 = _receiver1;
+
+        CRVUSD.approve(address(REWARD_TOKEN), type(uint).max);
     }
 
     modifier onlyOwner() {
@@ -139,51 +138,55 @@ contract YCRVSplitter {
         _sendVoteIncentives(voteIncentiveSplits);
     }
 
-    function _sendVoteIncentives(Split memory voteIncentiveSplits) internal returns(uint amount) {
-        amount = CRVUSD.balanceOf(RECEIVER);
-        CRVUSD.transferFrom(RECEIVER, address(this), amount);
+    function _sendVoteIncentives(Split memory splits) internal returns(uint amount) {
+        amount = CRVUSD.balanceOf(RECEIVER1);
+        IReceiver(RECEIVER1).transferToken(address(CRVUSD), address(this), amount);
         amount = _depositToVault(CRVUSD.balanceOf(address(this)));
         if (amount == 0) return 0;
-        if (voteIncentiveSplits.ybsRatio > 0) {
-            voteIncentiveSplits.ybsRatio = voteIncentiveSplits.ybsRatio * amount / PRECISION;
-            REWARD_DISTRIBUTOR.depositReward(voteIncentiveSplits.ybsRatio);
+        if (splits.ybsRatio > 0) {
+            splits.ybsRatio = splits.ybsRatio * amount / PRECISION;
+            if (splits.ybsRatio > 0)
+                REWARD_TOKEN.transfer(recipients.ybs, splits.ybsRatio);
         }
-        if (voteIncentiveSplits.treasuryRatio > 0) {
-            voteIncentiveSplits.treasuryRatio = voteIncentiveSplits.treasuryRatio * amount / PRECISION;
-            REWARD_TOKEN.transfer(recipients.treasury, voteIncentiveSplits.treasuryRatio);
+        if (splits.treasuryRatio > 0) {
+            splits.treasuryRatio = splits.treasuryRatio * amount / PRECISION;
+            if (splits.treasuryRatio > 0)
+                REWARD_TOKEN.transfer(recipients.treasury, splits.treasuryRatio);
         }
-        if (voteIncentiveSplits.remainderRatio > 0) {
-            voteIncentiveSplits.remainderRatio = voteIncentiveSplits.remainderRatio * amount / PRECISION;
-            REWARD_TOKEN.transfer(recipients.remainderTarget, voteIncentiveSplits.remainderRatio);
+        if (splits.remainderRatio > 0) {
+            splits.remainderRatio = splits.remainderRatio * amount / PRECISION;
+            if (splits.remainderRatio > 0)
+                REWARD_TOKEN.transfer(recipients.remainderTarget, splits.remainderRatio);
         }
-        emit VoteIncentiveSplit(voteIncentiveSplits.ybsRatio, voteIncentiveSplits.treasuryRatio, voteIncentiveSplits.remainderRatio);
+        emit VoteIncentiveSplit(splits.ybsRatio, splits.treasuryRatio, splits.remainderRatio);
         return amount;
     }
 
     function _claimAdminFees() internal returns (uint amount) {
         IProxy proxy = _getProxy();
-        if (!proxy.approvedAdminFeeClaimers(address(this))) return 0;
-        amount = REWARD_TOKEN.balanceOf(address(this));
-        proxy.claim(address(this));
-        return REWARD_TOKEN.balanceOf(address(this)) - amount;
+        if (!proxy.canClaim()) return 0;
+        amount = proxy.claimAdminFees();
     }
 
-    function _sendAdminFees(uint _amount, Split memory adminFeeSplits) internal returns (uint) {
+    function _sendAdminFees(uint _amount, Split memory splits) internal returns (uint) {
         _amount = _depositToVault(_amount);
         if (_amount == 0) return 0;
-        if (adminFeeSplits.ybsRatio > 0) {
-            adminFeeSplits.ybsRatio = adminFeeSplits.ybsRatio * _amount / PRECISION;
-            REWARD_DISTRIBUTOR.depositReward(adminFeeSplits.ybsRatio);
+        if (splits.ybsRatio > 0) {
+            splits.ybsRatio = splits.ybsRatio * _amount / PRECISION;
+            if (splits.ybsRatio > 0)
+                REWARD_TOKEN.transfer(recipients.ybs, splits.ybsRatio);
         }
-        if (adminFeeSplits.treasuryRatio > 0) {
-            adminFeeSplits.treasuryRatio = adminFeeSplits.treasuryRatio * _amount / PRECISION;
-            REWARD_TOKEN.transfer(recipients.treasury, adminFeeSplits.treasuryRatio);
+        if (splits.treasuryRatio > 0) {
+            splits.treasuryRatio = splits.treasuryRatio * _amount / PRECISION;
+            if (splits.treasuryRatio > 0)
+                REWARD_TOKEN.transfer(recipients.treasury, splits.treasuryRatio);
         }
-        if (adminFeeSplits.remainderRatio > 0) {
-            adminFeeSplits.remainderRatio = adminFeeSplits.remainderRatio * _amount / PRECISION;
-            REWARD_TOKEN.transfer(recipients.remainderTarget, adminFeeSplits.remainderRatio);
+        if (splits.remainderRatio > 0) {
+            splits.remainderRatio = splits.remainderRatio * _amount / PRECISION;
+            if (splits.remainderRatio > 0)
+                REWARD_TOKEN.transfer(recipients.remainderTarget, splits.remainderRatio);
         }
-        emit AdminFeeSplit(adminFeeSplits.ybsRatio, adminFeeSplits.treasuryRatio, adminFeeSplits.remainderRatio);
+        emit AdminFeeSplit(splits.ybsRatio, splits.treasuryRatio, splits.remainderRatio);
         return _amount;
     }
 
@@ -205,18 +208,18 @@ contract YCRVSplitter {
         return base;
     }
 
-    function getAdminFeeSplitRatios(BaseBalances memory base) internal view returns (Split memory adminFeeSplits) {
-        adminFeeSplits.ybsRatio = PRECISION * base.ybs / (base.veTotal - base.untokenized);
-        adminFeeSplits.remainderRatio = PRECISION - (adminFeeSplits.ybsRatio);
+    function getAdminFeeSplitRatios(BaseBalances memory base) internal view returns (Split memory splits) {
+        splits.ybsRatio = PRECISION * base.ybs / (base.veTotal - base.untokenized);
+        splits.remainderRatio = PRECISION - (splits.ybsRatio);
     }
 
-    function getVoteIncentiveSplitRatios(BaseBalances memory base) internal view returns (Split memory voteIncentiveSplits) {
+    function getVoteIncentiveSplitRatios(BaseBalances memory base) internal view returns (Split memory splits) {
         uint nonVoteIncentiveVotes = getDiscretionaryVotes() + getYcrvVotes() + getPartnerVotes();
         uint totalVoteIncentiveVotes = base.veTotal - nonVoteIncentiveVotes;
         if (totalVoteIncentiveVotes == 0) return Split(0, 0, PRECISION);
-        voteIncentiveSplits.ybsRatio = base.ybs * ybsVoteIncentiveRatio / totalVoteIncentiveVotes;
-        voteIncentiveSplits.treasuryRatio = PRECISION * (base.untokenized - getDiscretionaryVotes()) / totalVoteIncentiveVotes;
-        voteIncentiveSplits.remainderRatio = PRECISION - voteIncentiveSplits.ybsRatio - voteIncentiveSplits.treasuryRatio;
+        splits.ybsRatio = base.ybs * ybsVoteIncentiveRatio / totalVoteIncentiveVotes;
+        splits.treasuryRatio = PRECISION * (base.untokenized - getDiscretionaryVotes()) / totalVoteIncentiveVotes;
+        splits.remainderRatio = PRECISION - splits.ybsRatio - splits.treasuryRatio;
     }
 
     function getSplits() public view returns (Split memory adminFeeSplits, Split memory voteIncentiveSplits) {

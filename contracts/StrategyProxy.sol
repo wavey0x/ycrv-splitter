@@ -40,7 +40,7 @@ contract StrategyProxy {
     IProxy public constant proxy = IProxy(0xF147b8125d2ef93FB6965Db97D6746952a133934);
     IERC20 public constant CRVUSD = IERC20(0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E);
     /// @notice Recipient of weekly 3CRV admin fees. Default of yveCRV address.
-    mapping(address => bool) public approvedAdminFeeClaimers;
+    address public adminFeeRecipient;
 
     /// @notice Curve's fee distributor contract.
     FeeDistribution public constant feeDistribution = FeeDistribution(0xD16d5eC345Dd86Fb63C6a9C43c517210F1027914);
@@ -48,15 +48,12 @@ contract StrategyProxy {
     /// @notice Current governance address.
     address public governance;
 
-    /// @notice This voter's last time cursor, updated on each claim of admin fees.
-    uint256 public lastTimeCursor;
-
     // Events so that indexers can keep track of key actions
     event GovernanceSet(address indexed governance);
-    event AdminFeesClaimed(address indexed recipient, uint256 amount);
 
-    constructor() public {
+    constructor(address _adminFeeRecipient) public {
         governance = msg.sender;
+        adminFeeRecipient = _adminFeeRecipient;
     }
     
     /// @notice Set governance address.
@@ -70,29 +67,48 @@ contract StrategyProxy {
     }
 
     /// @notice Claim share of weekly admin fees from Curve fee distributor.
-    /// @dev Admin fees become available every Thursday, so we run this expensive
-    ///  logic only once per week. May only be called by feeRecipient.
-    /// @param _recipient The address to which we transfer 3CRV.
-    function claim(address _recipient) external {
-        require(approvedAdminFeeClaimers[msg.sender], "!approved");
-        if (!claimable()) return;
-
-        address p = address(proxy);
-        feeDistribution.claim_many([p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]);
-        lastTimeCursor = feeDistribution.time_cursor_of(address(proxy));
-
-        uint256 amount = CRVUSD.balanceOf(address(proxy));
+    /// @dev Admin fees become available every Thursday at 00:00 UTC
+    function claimAdminFees() external returns (uint amount) {
+        require(msg.sender == adminFeeRecipient, "!authorized");
+        if (canClaim()) {
+            address p = address(proxy);
+            feeDistribution.claim_many([p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]);
+        }
+        amount = CRVUSD.balanceOf(address(proxy));
         if (amount > 0) {
-            proxy.safeExecute(address(CRVUSD), 0, abi.encodeWithSignature("transfer(address,uint256)", _recipient, amount));
-            emit AdminFeesClaimed(_recipient, amount);
+            proxy.safeExecute(address(CRVUSD), 0, abi.encodeWithSignature("transfer(address,uint256)", adminFeeRecipient, amount));
         }
     }
 
-    /// @notice Check if it has been one week since last admin fee claim.
-    function claimable() public view returns (bool) {
-        /// @dev add 1 day buffer since fees come available mid-day
-        if (block.timestamp < lastTimeCursor + WEEK + 1 days) return false;
-        return true;
+    /// @notice Claim share of weekly admin fees from Curve fee distributor.
+    /// @dev Admin fees become available every Thursday, so we run this expensive
+    ///  logic only once per week. May only be called by feeRecipient.
+    function forceClaimAdminFees(address _recipient) external returns (uint amount) {
+        if (canClaim()) {
+            address p = address(proxy);
+            feeDistribution.claim_many([p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]);
+        }
+        amount = CRVUSD.balanceOf(address(proxy));
+        if (amount > 0) {
+            proxy.safeExecute(address(CRVUSD), 0, abi.encodeWithSignature("transfer(address,uint256)", _recipient, amount));
+        }
+    }
+
+    function setAdminFeeRecipient(address _recipient) external {
+        require(msg.sender == governance, "!governance");
+        adminFeeRecipient = _recipient;
+    }
+
+    /// @notice Check if it is possible to make an admin fee claim.
+    function canClaim() public view returns (bool) {
+        uint weekStart = block.timestamp / WEEK * WEEK;
+        uint lastClaimWeek = feeDistribution.time_cursor_of(address(proxy));
+        uint lastCheckpoint = feeDistribution.last_token_time();
+        if (
+            block.timestamp > lastClaimWeek + 1 weeks &&
+            lastCheckpoint > weekStart
+        ) return true;
+        return false;
     }
 
     function _transferBalance(address _token) internal {
