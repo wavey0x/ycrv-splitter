@@ -14,4 +14,4 @@ venv
 
 # Other
 .DS_Store
-./data
+data

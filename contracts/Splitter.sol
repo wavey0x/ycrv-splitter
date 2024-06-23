@@ -156,18 +156,15 @@ contract YCRVSplitter {
         if (amount == 0) return 0;
         if (splits.ybsRatio > 0) {
             splits.ybsRatio = splits.ybsRatio * amount / PRECISION;
-            if (splits.ybsRatio > 0)
-                REWARD_TOKEN.transfer(recipients.ybs, splits.ybsRatio);
+            REWARD_TOKEN.transfer(recipients.ybs, splits.ybsRatio);
         }
         if (splits.treasuryRatio > 0) {
             splits.treasuryRatio = splits.treasuryRatio * amount / PRECISION;
-            if (splits.treasuryRatio > 0)
-                REWARD_TOKEN.transfer(recipients.treasury, splits.treasuryRatio);
+            REWARD_TOKEN.transfer(recipients.treasury, splits.treasuryRatio);
         }
         if (splits.remainderRatio > 0) {
             splits.remainderRatio = splits.remainderRatio * amount / PRECISION;
-            if (splits.remainderRatio > 0)
-                REWARD_TOKEN.transfer(recipients.remainderTarget, splits.remainderRatio);
+            REWARD_TOKEN.transfer(recipients.remainderTarget, splits.remainderRatio);
         }
         emit VoteIncentiveSplit(splits.ybsRatio, splits.treasuryRatio, splits.remainderRatio);
         return amount;
@@ -184,18 +181,15 @@ contract YCRVSplitter {
         if (_amount == 0) return 0;
         if (splits.ybsRatio > 0) {
             splits.ybsRatio = splits.ybsRatio * _amount / PRECISION;
-            if (splits.ybsRatio > 0)
-                REWARD_TOKEN.transfer(recipients.ybs, splits.ybsRatio);
+            REWARD_TOKEN.transfer(recipients.ybs, splits.ybsRatio);
         }
         if (splits.treasuryRatio > 0) {
             splits.treasuryRatio = splits.treasuryRatio * _amount / PRECISION;
-            if (splits.treasuryRatio > 0)
-                REWARD_TOKEN.transfer(recipients.treasury, splits.treasuryRatio);
+            REWARD_TOKEN.transfer(recipients.treasury, splits.treasuryRatio);
         }
         if (splits.remainderRatio > 0) {
             splits.remainderRatio = splits.remainderRatio * _amount / PRECISION;
-            if (splits.remainderRatio > 0)
-                REWARD_TOKEN.transfer(recipients.remainderTarget, splits.remainderRatio);
+            REWARD_TOKEN.transfer(recipients.remainderTarget, splits.remainderRatio);
         }
         emit AdminFeeSplit(splits.ybsRatio, splits.treasuryRatio, splits.remainderRatio);
         return _amount;
