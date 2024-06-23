@@ -36,7 +36,24 @@ def receiver2(project, gov, ylockers_ms, reward_distributor, dev):
 
 @pytest.fixture(scope="session")
 def splitter(project, dev, receiver1, receiver2, gov):
-    splitter = dev.deploy(project.YCRVSplitter, receiver1, receiver2)
+    discretionary_gauges = [
+        '0x05255C5BD33672b9FEA4129C13274D1E6193312d', # YFI/ETH
+        '0x138cC21D15b7A06F929Fc6CFC88d2b830796F4f1', # ETH/yETH
+    ]
+    ycrv_gauges = [
+        '0xEEBC06d495c96E57542A6d829184A907A02ef602', # CRV/yCRV
+    ]
+    partner_gauges = [
+        '0x6070fBD4E608ee5391189E7205d70cc4A274c017', # Threshold
+    ]
+    splitter = dev.deploy(
+        project.YCRVSplitter, 
+        receiver1, 
+        receiver2,
+        ycrv_gauges,
+        partner_gauges,
+        discretionary_gauges,
+    )
     receiver1.setApprovedSpender(splitter, True, sender=gov)
     yield splitter
 

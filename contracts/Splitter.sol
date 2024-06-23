@@ -87,11 +87,16 @@ contract YCRVSplitter {
         address remainderTarget;
     }
 
-    constructor(address _receiver1, address _receiver2) public {
-        discretionaryGauges.push(0x05255C5BD33672b9FEA4129C13274D1E6193312d); // YFI/ETH
-        discretionaryGauges.push(0x138cC21D15b7A06F929Fc6CFC88d2b830796F4f1); // ETH/yETH
-        ycrvGauges.push(0xEEBC06d495c96E57542A6d829184A907A02ef602); // CRV/yCRV
-        partnerGauges.push(0x6070fBD4E608ee5391189E7205d70cc4A274c017); // Threshold
+    constructor(
+        address _receiver1, 
+        address _receiver2, 
+        address[] memory ycrvGauges, 
+        address[] memory partnerGauges, 
+        address[] memory discretionaryGauges
+    ) public {
+        _setYCrvGauges(ycrvGauges);
+        _setPartnerGauges(partnerGauges);
+        _setDiscretionaryGauges(discretionaryGauges);
         
         recipients.ybs = _receiver2;
         recipients.treasury = 0x93A62dA5a14C80f265DAbC077fCEE437B1a0Efde;
@@ -280,6 +285,10 @@ contract YCRVSplitter {
     }
 
     function setDiscretionaryGauges(address[] memory _gauges) external onlyAdmins {
+        _setDiscretionaryGauges(_gauges);
+    }
+
+    function _setDiscretionaryGauges(address[] memory _gauges) internal {
         delete discretionaryGauges;
         discretionaryGauges = _gauges;
         uint length = _gauges.length;
@@ -290,6 +299,10 @@ contract YCRVSplitter {
     }
 
     function setYCrvGauges(address[] memory _gauges) external onlyAdmins {
+        _setYCrvGauges(_gauges);
+    }
+
+    function _setYCrvGauges(address[] memory _gauges) internal {
         delete ycrvGauges;
         ycrvGauges = _gauges;
         uint length = _gauges.length;
@@ -300,6 +313,10 @@ contract YCRVSplitter {
     }
 
     function setPartnerGauges(address[] memory _gauges) external onlyAdmins {
+        _setPartnerGauges(_gauges);
+    }
+
+    function _setPartnerGauges(address[] memory _gauges) internal {
         delete partnerGauges;
         partnerGauges = _gauges;
         uint length = _gauges.length;
