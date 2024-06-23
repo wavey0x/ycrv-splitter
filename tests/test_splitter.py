@@ -1,4 +1,5 @@
 from ape import chain, project, Contract
+import ape
 
 DAY = 24 * 60 * 60
 WEEK = DAY * 7
@@ -8,7 +9,6 @@ def test_splitter(
     receiver1, receiver2, reward_token, new_fee_distributor, curve_dao, voter, mock_proxy, 
     top_up_curve_fee_distributor,
 ):
-    partner_balances = 1_250_000 * 10 ** 18
     admin_split = splitter.getSplits().adminFeeSplits
     voteIncentive_split = splitter.getSplits().voteIncentiveSplits
     
@@ -74,12 +74,54 @@ def test_splitter(
     crvusd.approve(splitter, 2**256-1, sender=ylockers_ms)
     tx = splitter.depositAdminFeesAndSplit(amount, sender=ylockers_ms)
     assert yvcrvusd.balanceOf(receiver2) > amount / 2
+
+def test_remove_votes(dev, splitter, crvusd_whale, ylockers_ms, gov, crvusd, 
+    yvcrvusd, reward_distributor, voter,
+    receiver1, reward_token, gauge_controller
+    ):
+
+    voted_gauges = [
+        '0x60d3d7eBBC44Dc810A743703184f062d00e6dB7e',
+        '0x85D44861D024CB7603Ba906F2Dc9569fC02083F6',
+    ]
     
-    assert False
+    voter.balance += 10 ** 18
+    tx = gauge_controller.vote_for_gauge_weights(
+        splitter.ycrvGauges(0),
+        0,
+        sender=voter
+    )
+    admin_split = splitter.getSplits().adminFeeSplits
+    voteIncentive_split = splitter.getSplits().voteIncentiveSplits
+    
+    print('-- Admin Fees --')
+    print(f'{admin_split[0] / 1e16:,.2f}% YBS')
+    print(f'{admin_split[1] / 1e16:,.2f}% Treasury')
+    print(f'{admin_split[2] / 1e16:,.2f} Leftover')
+    print('\n-- Vote Incentives --')
+    print(f'{voteIncentive_split[0] / 1e16:,.2f}% YBS')
+    print(f'{voteIncentive_split[1] / 1e16:,.2f}% Treasury')
+    print(f'{voteIncentive_split[2] / 1e16:,.2f}% Leftover')
 
-def test_remove_votes(dev, splitter, crvusd_whale, ylockers_ms, gov, crvusd, yvcrvusd, reward_distributor,
-    receiver1, reward_token, gauge_controller):
-    return
+    # Remove from stake
+    ybs = Contract('0xE9A115b77A1057C918F997c32663FdcE24FB873f')
+    s = Contract('0xBdF157c3bad2164Ce6F9dc607fd115374010c5dC')
+    s.emergencyUnstake(ybs.balanceOf(s), sender=gov)
 
-def test_add_gauge_with_zero_votes():
-    return
+    splitter.getSplits()
+
+def test_add_invalid_gauge(splitter, gov):
+    valid_gauges = [
+        '0x60d3d7eBBC44Dc810A743703184f062d00e6dB7e',
+        '0x85D44861D024CB7603Ba906F2Dc9569fC02083F6',
+    ]
+    invalid_gauges = [splitter.address]
+
+    tx = splitter.setYCrvGauges(valid_gauges, sender=gov)
+
+    with ape.reverts():
+        # Should revert due to duplicates
+        tx = splitter.setYCrvGauges(valid_gauges+valid_gauges, sender=gov)
+    with ape.reverts():
+        # Should revert due to unapproved by curve gov
+        tx = splitter.setYCrvGauges(invalid_gauges,sender=gov)

@@ -116,6 +116,7 @@ contract YCRVSplitter {
         _;
     }
 
+    /// @notice Split according to on-chain calculations.
     function executeSplit() external {
         require(
             approvedSplitCallers[msg.sender] ||
@@ -128,6 +129,7 @@ contract YCRVSplitter {
         _sendVoteIncentives(voteIncentiveSplits);
     }
 
+    /// @notice Supply manual split values to override on-chain claculations.
     function executeManualSplit(Split memory adminFeeSplits, Split memory voteIncentiveSplits) external onlyOwner {
         uint total = adminFeeSplits.ybsRatio + adminFeeSplits.remainderRatio + adminFeeSplits.treasuryRatio;
         require(total == PRECISION, "adminFeeSplits sum !100%");
@@ -137,7 +139,9 @@ contract YCRVSplitter {
         _sendAdminFees(amount, adminFeeSplits);
         _sendVoteIncentives(voteIncentiveSplits);
     }
-
+    
+    /// @dev Allow admins to manually push crvUSD as admin fees. Nice to have in event
+    ///      where admin fees might flow to old receiver.
     function depositAdminFeesAndSplit(uint _amount) external onlyAdmins {
         CRVUSD.transferFrom(msg.sender, address(this), _amount);
         (Split memory adminFeeSplits, Split memory voteIncentiveSplits) = getSplits();

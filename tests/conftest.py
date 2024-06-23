@@ -91,8 +91,10 @@ def new_fee_distributor():
     yield Contract('0xD16d5eC345Dd86Fb63C6a9C43c517210F1027914')
 
 @pytest.fixture(scope="session")
-def voter(splitter):
-    yield Contract(splitter.VOTER())
+def voter(splitter, accounts):
+    voter = accounts[splitter.VOTER()]
+    voter.balance += 10 ** 18
+    yield voter
 
 @pytest.fixture(scope="session")
 def crvusd_whale(accounts):
