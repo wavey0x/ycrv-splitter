@@ -289,6 +289,7 @@ contract YCRVSplitter {
         return block.timestamp / 1 weeks * 1 weeks;
     }
 
+    /// @notice Manually specify gauges used for yCRV voting.
     function setYCrvGauges(address[] memory _gauges) external onlyAdmins {
         _setYCrvGauges(_gauges);
     }
@@ -300,6 +301,7 @@ contract YCRVSplitter {
         ycrvGaugesLength = _gauges.length;
     }
 
+    /// @notice Manually specify gauges used for partner voting.
     function setPartnerGauges(address[] memory _gauges) external onlyAdmins {
         _setPartnerGauges(_gauges);
     }
@@ -311,6 +313,7 @@ contract YCRVSplitter {
         partnerGaugesLength = _gauges.length;
     }
 
+    /// @notice Manually specify gauges that Yearn elects to use its own veCRV balance to vote for.
     function setDiscretionaryGauges(address[] memory _gauges) external onlyAdmins {
         _setDiscretionaryGauges(_gauges);
     }
