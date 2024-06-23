@@ -10,6 +10,7 @@ interface IGaugeController {
         uint end;
     }
     function vote_user_slopes(address user, address gauge) external view returns (VotedSlope memory);
+    function gauge_types(address gauge) external view returns (int128);
 }
 
 interface IProxy {
@@ -53,6 +54,9 @@ contract YCRVSplitter {
     address public owner = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52;
     address public guardian = 0x4444AAAACDBa5580282365e25b16309Bd770ce4a;
     Recipients recipients;
+    uint public ycrvGaugesLength;
+    uint public partnerGaugesLength;
+    uint public discretionaryGaugesLength;
     address[] public discretionaryGauges;
     address[] public ycrvGauges;
     address[] public partnerGauges;
@@ -259,6 +263,7 @@ contract YCRVSplitter {
         );
     }
 
+    /// @dev Sum all active bias (veCRV contributed by Yearn) for a list of gauges.
     function sumGaugeBias(address[] memory gauges) internal view returns (uint) {
         uint biasTotal;
         uint currentWeekTimestamp = getCurrentWeekStartTime();
@@ -277,16 +282,31 @@ contract YCRVSplitter {
     function setDiscretionaryGauges(address[] memory _gauges) external onlyAdmins {
         delete discretionaryGauges;
         discretionaryGauges = _gauges;
+        uint length = _gauges.length;
+        for (uint i; i < length; i++) {
+            require(_checkValidGauge(_gauges[i]), "Invalid gauge");
+        }
+        discretionaryGaugesLength = _gauges.length;
     }
 
     function setYCrvGauges(address[] memory _gauges) external onlyAdmins {
         delete ycrvGauges;
         ycrvGauges = _gauges;
+        uint length = _gauges.length;
+        for (uint i; i < length; i++) {
+            require(_checkValidGauge(_gauges[i]), "Invalid gauge");
+        }
+        ycrvGaugesLength = _gauges.length;
     }
 
     function setPartnerGauges(address[] memory _gauges) external onlyAdmins {
         delete partnerGauges;
         partnerGauges = _gauges;
+        uint length = _gauges.length;
+        for (uint i; i < length; i++) {
+            require(_checkValidGauge(_gauges[i]), "Invalid gauge");
+        }
+        partnerGaugesLength = _gauges.length;
     }
 
     function sweep(IERC20 token, uint amount) external onlyOwner {
@@ -305,5 +325,13 @@ contract YCRVSplitter {
 
     function _getProxy() internal returns (IProxy) {
         return IVoter(VOTER).strategy();
+    }
+
+    function _checkValidGauge(address _gauge) internal view returns (bool) {
+        try GAUGE_CONTROLLER.gauge_types(_gauge) {
+            return true;
+        }
+        catch {}
+        return false;
     }
 }
