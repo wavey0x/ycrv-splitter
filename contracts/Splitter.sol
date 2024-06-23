@@ -49,7 +49,6 @@ contract YCRVSplitter {
     IVault public constant REWARD_TOKEN = IVault(0xBF319dDC2Edc1Eb6FDf9910E39b37Be221C8805F); // V3 vault
     
     address public immutable RECEIVER1;
-    bool public permissionlessSplitsAllowed;
     uint public ybsVoteIncentiveRatio = 9e17;
     address public owner = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52;
     address public guardian = 0x4444AAAACDBa5580282365e25b16309Bd770ce4a;
@@ -110,7 +109,6 @@ contract YCRVSplitter {
 
     function executeSplit() external {
         require(
-            permissionlessSplitsAllowed ||
             approvedSplitCallers[msg.sender] ||
             msg.sender == owner ||
             msg.sender == guardian
@@ -299,10 +297,6 @@ contract YCRVSplitter {
         require(_treasury != address(0) && _remainderTarget != address(0), "Invalid target");
         recipients.treasury = _treasury;
         recipients.remainderTarget = _remainderTarget;
-    }
-
-    function setPermissionlessSplitsAllowed(bool _allowed) external onlyOwner{
-        permissionlessSplitsAllowed = _allowed;
     }
 
     function setApprovedSplitCaller(address _caller, bool _approved) external onlyOwner {
