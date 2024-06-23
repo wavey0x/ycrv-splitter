@@ -5,7 +5,12 @@
 # Python
 .env
 .venv
+env
+venv
 .pytest_cache
 .python-version
 __pycache__
 venv
+
+# Other
+.DS_Store
