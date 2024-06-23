@@ -289,12 +289,9 @@ contract YCRVSplitter {
     }
 
     function _setDiscretionaryGauges(address[] memory _gauges) internal {
+        require(_validateGaugeList(_gauges), "Invalid gauge list");
         delete discretionaryGauges;
         discretionaryGauges = _gauges;
-        uint length = _gauges.length;
-        for (uint i; i < length; i++) {
-            require(_checkValidGauge(_gauges[i]), "Invalid gauge");
-        }
         discretionaryGaugesLength = _gauges.length;
     }
 
@@ -303,12 +300,9 @@ contract YCRVSplitter {
     }
 
     function _setYCrvGauges(address[] memory _gauges) internal {
+        require(_validateGaugeList(_gauges), "Invalid gauge list");
         delete ycrvGauges;
         ycrvGauges = _gauges;
-        uint length = _gauges.length;
-        for (uint i; i < length; i++) {
-            require(_checkValidGauge(_gauges[i]), "Invalid gauge");
-        }
         ycrvGaugesLength = _gauges.length;
     }
 
@@ -317,12 +311,9 @@ contract YCRVSplitter {
     }
 
     function _setPartnerGauges(address[] memory _gauges) internal {
+        require(_validateGaugeList(_gauges), "Invalid gauge list");
         delete partnerGauges;
         partnerGauges = _gauges;
-        uint length = _gauges.length;
-        for (uint i; i < length; i++) {
-            require(_checkValidGauge(_gauges[i]), "Invalid gauge");
-        }
         partnerGaugesLength = _gauges.length;
     }
 
@@ -344,11 +335,23 @@ contract YCRVSplitter {
         return IVoter(VOTER).strategy();
     }
 
-    function _checkValidGauge(address _gauge) internal view returns (bool) {
-        try GAUGE_CONTROLLER.gauge_types(_gauge) {
-            return true;
+    /// @dev Prevents duplicates and unapproved gauges
+    function _validateGaugeList(address[] memory _gauges) internal returns (bool) {
+        for (uint i = 0; i < _gauges.length; i++) {
+            for (uint k = 0; k < i; k++) { // Loop through only the part of the array that has been processed
+                if (
+                    i != k &&
+                    _gauges[i] == _gauges[k]
+                ) {
+                    return false;
+                }
+            }
+            // Reverts if Curve gov has not approved this address.
+            try GAUGE_CONTROLLER.gauge_types(_gauges[i]) {}
+            catch {
+                return false;
+            }
         }
-        catch {}
-        return false;
+        return true;
     }
 }

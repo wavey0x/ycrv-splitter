@@ -74,7 +74,8 @@ def test_splitter(
     crvusd.approve(splitter, 2**256-1, sender=ylockers_ms)
     tx = splitter.depositAdminFeesAndSplit(amount, sender=ylockers_ms)
     assert yvcrvusd.balanceOf(receiver2) > amount / 2
-    return
+    
+    assert False
 
 def test_remove_votes(dev, splitter, crvusd_whale, ylockers_ms, gov, crvusd, yvcrvusd, reward_distributor,
     receiver1, reward_token, gauge_controller):
