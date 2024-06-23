@@ -201,10 +201,6 @@ contract YCRVSplitter {
         return _amount;
     }
 
-    function yearnVeBalance() internal view returns (uint) {
-        return IERC20(VE).balanceOf(VOTER);
-    }
-
     function getBaseBalances() public view returns (BaseBalances memory base) {
         base.veTotal = yearnVeBalance();
         base.ybs = ybsBalance();
@@ -233,15 +229,16 @@ contract YCRVSplitter {
         splits.remainderRatio = PRECISION - splits.ybsRatio - splits.treasuryRatio;
     }
 
+    /// @notice Preview split ratios.
     function getSplits() public view returns (Split memory adminFeeSplits, Split memory voteIncentiveSplits) {
         BaseBalances memory base = getBaseBalances();
         adminFeeSplits = getAdminFeeSplitRatios(base);
         voteIncentiveSplits = getVoteIncentiveSplitRatios(base);
     }
 
-    /// @dev Deposits full balance of crvUSD
-    /// @param _amount Amount to deposit
-    /// @return amount Total balance of reward token
+    /// @dev Deposits full balance of crvUSD.
+    /// @param _amount Amount to deposit.
+    /// @return amount Total balance of reward token.
     function _depositToVault(uint _amount) internal returns(uint) {
         if (_amount == 0) return 0;
         REWARD_TOKEN.deposit(_amount, address(this));
@@ -272,6 +269,10 @@ contract YCRVSplitter {
         );
     }
 
+    function yearnVeBalance() internal view returns (uint) {
+        return IERC20(VE).balanceOf(VOTER);
+    }
+
     /// @dev Sum all active bias (veCRV contributed by Yearn) for a list of gauges.
     function sumGaugeBias(address[] memory gauges) internal view returns (uint) {
         uint biasTotal;
@@ -286,17 +287,6 @@ contract YCRVSplitter {
 
     function getCurrentWeekStartTime() internal view returns (uint) {
         return block.timestamp / 1 weeks * 1 weeks;
-    }
-
-    function setDiscretionaryGauges(address[] memory _gauges) external onlyAdmins {
-        _setDiscretionaryGauges(_gauges);
-    }
-
-    function _setDiscretionaryGauges(address[] memory _gauges) internal {
-        require(_validateGaugeList(_gauges), "Invalid gauge list");
-        delete discretionaryGauges;
-        discretionaryGauges = _gauges;
-        discretionaryGaugesLength = _gauges.length;
     }
 
     function setYCrvGauges(address[] memory _gauges) external onlyAdmins {
@@ -321,12 +311,29 @@ contract YCRVSplitter {
         partnerGaugesLength = _gauges.length;
     }
 
+    function setDiscretionaryGauges(address[] memory _gauges) external onlyAdmins {
+        _setDiscretionaryGauges(_gauges);
+    }
+
+    function _setDiscretionaryGauges(address[] memory _gauges) internal {
+        require(_validateGaugeList(_gauges), "Invalid gauge list");
+        delete discretionaryGauges;
+        discretionaryGauges = _gauges;
+        discretionaryGaugesLength = _gauges.length;
+    }
+
     function sweep(IERC20 token, uint amount) external onlyOwner {
         token.safeTransfer(owner, amount);
     }
 
-    function setRecipients(address _treasury, address _remainderTarget) external onlyOwner {
-        require(_treasury != address(0) && _remainderTarget != address(0), "Invalid target");
+    function setRecipients(address _ybs, address _treasury, address _remainderTarget) external onlyOwner {
+        require(
+            _ybs != address(0) &&
+            _treasury != address(0) && 
+            _remainderTarget != address(0), 
+            "Invalid target"
+        );
+        recipients.ybs = _ybs;
         recipients.treasury = _treasury;
         recipients.remainderTarget = _remainderTarget;
     }
