@@ -15,3 +15,21 @@ venv
 # Other
 .DS_Store
 data
+yarn.lock
+pyenv.cfg
+vyper_git_commithash.txt
+bin/
+lib/
+share/
+build/
+include/
+.build
+node_modules
+**/__pycache__
+.pytest_cache
+**/.cache
+venv/
+.hypothesis/
+.idea
+.vscode
+env

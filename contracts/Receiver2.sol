@@ -2,8 +2,10 @@
 pragma solidity 0.8.19;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 interface IDistributor {
     function depositReward(uint amount) external;
+
     function rewardToken() external view returns (IERC20);
 }
 
@@ -25,7 +27,7 @@ contract Receiver2 {
     event GuardianSet(address indexed guardian);
 
     constructor(
-        address _owner, 
+        address _owner,
         address _guardian,
         address _feeRecipient,
         IDistributor _distributor
@@ -44,11 +46,7 @@ contract Receiver2 {
     }
 
     modifier _onlyAdmins() {
-        require(
-            msg.sender == owner ||
-            msg.sender == guardian,
-            "!Admin"
-        );
+        require(msg.sender == owner || msg.sender == guardian, "!Admin");
         _;
     }
 
@@ -84,7 +82,7 @@ contract Receiver2 {
     ) external {
         require(approvedSpenders[msg.sender], "!Approved");
         require(tokens.length == amounts.length, "Array lengths dont match");
-        for(uint i; i < tokens.length; i++) {
+        for (uint i; i < tokens.length; i++) {
             _transfer(tokens[i], receiver, amounts[i]);
         }
     }
@@ -97,7 +95,10 @@ contract Receiver2 {
         token.safeTransfer(receiver, amount);
     }
 
-    function setApprovedSpender(address _spender, bool _approved) external _onlyOwner() {
+    function setApprovedSpender(
+        address _spender,
+        bool _approved
+    ) external _onlyOwner {
         if (msg.sender == guardian) {
             require(_approved == false, "Guardian may only disable");
         }
@@ -106,11 +107,11 @@ contract Receiver2 {
         emit SpenderApproved(_spender, _approved);
     }
 
-    function setPaused(bool _paused) external _onlyAdmins() {
+    function setPaused(bool _paused) external _onlyAdmins {
         paused = _paused;
     }
 
-    function setPerformanceFee(uint _performanceFee) external _onlyOwner() {
+    function setPerformanceFee(uint _performanceFee) external _onlyOwner {
         require(_performanceFee <= 10_000, "Too high");
         performanceFee = _performanceFee;
     }

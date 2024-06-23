@@ -5,8 +5,11 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 
 interface FeeDistribution {
     function claim_many(address[20] calldata) external returns (bool);
+
     function last_token_time() external view returns (uint256);
+
     function time_cursor() external view returns (uint256);
+
     function time_cursor_of(address) external view returns (uint256);
 }
 
@@ -37,13 +40,16 @@ contract StrategyProxy {
     uint256 private constant WEEK = 604800; // Number of seconds in a week
 
     /// @notice Yearn's voter proxy. Typically referred to as "voter".
-    IProxy public constant proxy = IProxy(0xF147b8125d2ef93FB6965Db97D6746952a133934);
-    IERC20 public constant CRVUSD = IERC20(0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E);
+    IProxy public constant proxy =
+        IProxy(0xF147b8125d2ef93FB6965Db97D6746952a133934);
+    IERC20 public constant CRVUSD =
+        IERC20(0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E);
     /// @notice Recipient of weekly 3CRV admin fees. Default of yveCRV address.
     address public adminFeeRecipient;
 
     /// @notice Curve's fee distributor contract.
-    FeeDistribution public constant feeDistribution = FeeDistribution(0xD16d5eC345Dd86Fb63C6a9C43c517210F1027914);
+    FeeDistribution public constant feeDistribution =
+        FeeDistribution(0xD16d5eC345Dd86Fb63C6a9C43c517210F1027914);
 
     /// @notice Current governance address.
     address public governance;
@@ -55,7 +61,7 @@ contract StrategyProxy {
         governance = msg.sender;
         adminFeeRecipient = _adminFeeRecipient;
     }
-    
+
     /// @notice Set governance address.
     /// @dev Must be called by current governance.
     /// @param _governance Address to set as governance.
@@ -72,25 +78,47 @@ contract StrategyProxy {
         require(msg.sender == adminFeeRecipient, "!authorized");
         if (canClaim()) {
             address p = address(proxy);
-            feeDistribution.claim_many([p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]);
+            feeDistribution.claim_many(
+                [p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]
+            );
         }
         amount = CRVUSD.balanceOf(address(proxy));
         if (amount > 0) {
-            proxy.safeExecute(address(CRVUSD), 0, abi.encodeWithSignature("transfer(address,uint256)", adminFeeRecipient, amount));
+            proxy.safeExecute(
+                address(CRVUSD),
+                0,
+                abi.encodeWithSignature(
+                    "transfer(address,uint256)",
+                    adminFeeRecipient,
+                    amount
+                )
+            );
         }
     }
 
     /// @notice Claim share of weekly admin fees from Curve fee distributor.
     /// @dev Admin fees become available every Thursday, so we run this expensive
     ///  logic only once per week. May only be called by feeRecipient.
-    function forceClaimAdminFees(address _recipient) external returns (uint amount) {
+    function forceClaimAdminFees(
+        address _recipient
+    ) external returns (uint amount) {
         if (canClaim()) {
             address p = address(proxy);
-            feeDistribution.claim_many([p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]);
+            feeDistribution.claim_many(
+                [p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]
+            );
         }
         amount = CRVUSD.balanceOf(address(proxy));
         if (amount > 0) {
-            proxy.safeExecute(address(CRVUSD), 0, abi.encodeWithSignature("transfer(address,uint256)", _recipient, amount));
+            proxy.safeExecute(
+                address(CRVUSD),
+                0,
+                abi.encodeWithSignature(
+                    "transfer(address,uint256)",
+                    _recipient,
+                    amount
+                )
+            );
         }
     }
 
@@ -101,7 +129,7 @@ contract StrategyProxy {
 
     /// @notice Check if it is possible to make an admin fee claim.
     function canClaim() public view returns (bool) {
-        uint weekStart = block.timestamp / WEEK * WEEK;
+        uint weekStart = (block.timestamp / WEEK) * WEEK;
         uint lastClaimWeek = feeDistribution.time_cursor_of(address(proxy));
         uint lastCheckpoint = feeDistribution.last_token_time();
         if (
@@ -112,6 +140,14 @@ contract StrategyProxy {
     }
 
     function _transferBalance(address _token) internal {
-        proxy.safeExecute(_token, 0, abi.encodeWithSignature("transfer(address,uint256)", msg.sender, IERC20(_token).balanceOf(address(proxy))));
+        proxy.safeExecute(
+            _token,
+            0,
+            abi.encodeWithSignature(
+                "transfer(address,uint256)",
+                msg.sender,
+                IERC20(_token).balanceOf(address(proxy))
+            )
+        );
     }
 }
