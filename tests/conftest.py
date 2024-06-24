@@ -41,12 +41,12 @@ def fee_burner(project, gov, ylockers_ms, trade_factory):
 
 
 @pytest.fixture(scope="session")
-def receiver2(project, gov, ylockers_ms, reward_distributor, dev):
-    yield dev.deploy(project.Receiver2, gov, ylockers_ms, gov, reward_distributor)
+def receiver(project, gov, ylockers_ms, reward_distributor, dev):
+    yield dev.deploy(project.Receiver, gov, ylockers_ms, gov, reward_distributor)
 
 
 @pytest.fixture(scope="session")
-def splitter(project, dev, fee_burner, receiver2, gov, crvusd):
+def splitter(project, dev, fee_burner, receiver, gov, crvusd):
     discretionary_gauges = [
         "0x05255C5BD33672b9FEA4129C13274D1E6193312d",  # YFI/ETH
         "0x138cC21D15b7A06F929Fc6CFC88d2b830796F4f1",  # ETH/yETH
@@ -60,7 +60,7 @@ def splitter(project, dev, fee_burner, receiver2, gov, crvusd):
     splitter = dev.deploy(
         project.YCRVSplitter,
         fee_burner,
-        receiver2,
+        receiver,
         ycrv_gauges,
         partner_gauges,
         discretionary_gauges,

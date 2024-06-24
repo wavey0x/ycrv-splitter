@@ -9,7 +9,7 @@ interface IDistributor {
     function rewardToken() external view returns (IERC20);
 }
 
-contract Receiver2 {
+contract Receiver {
     using SafeERC20 for IERC20;
 
     IDistributor public immutable DISTRIBUTOR;
