@@ -7,6 +7,8 @@ plugins:
   - name: foundry
   - name: alchemy
 
+default_ecosystem: ethereum
+
 dependencies:
   - name: OpenZeppelin
     github: OpenZeppelin/openzeppelin-contracts
