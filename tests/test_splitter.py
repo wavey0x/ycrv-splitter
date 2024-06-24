@@ -28,7 +28,7 @@ def test_splitter(
     yvcrvusd,
     reward_distributor,
     fee_burner,
-    receiver2,
+    receiver,
     reward_token,
     new_fee_distributor,
     curve_dao,
@@ -51,7 +51,7 @@ def test_splitter(
     amount = 100_000 * 10**18
     crvusd.transfer(fee_burner, amount, sender=crvusd_whale)
 
-    rewards_before = yvcrvusd.balanceOf(receiver2)
+    rewards_before = yvcrvusd.balanceOf(receiver)
 
     before = crvusd.balanceOf(new_fee_distributor)
     top_up_curve_fee_distributor()  # sends crvUSD, checkpoints, advances 1 week
@@ -84,10 +84,10 @@ def test_splitter(
     for t in transfers:
         print(t.contract_address, t.sender, t.receiver, f"{t.value/10**18:,.2f}")
 
-    total_rewards = yvcrvusd.balanceOf(receiver2)
+    total_rewards = yvcrvusd.balanceOf(receiver)
 
-    tx = receiver2.depositRewards(sender=dev)
-    fee = receiver2.performanceFee() / 10_000 * total_rewards
+    tx = receiver.depositRewards(sender=dev)
+    fee = receiver.performanceFee() / 10_000 * total_rewards
     deposited = list(tx.decode_logs(reward_distributor.RewardDeposited))[0].rewardAmount
     assert abs(int(total_rewards) - int(fee) - deposited) < 10**18
 
@@ -99,7 +99,7 @@ def test_splitter(
     crvusd.transfer(ylockers_ms, amount, sender=crvusd_whale)
     crvusd.approve(splitter, 2**256 - 1, sender=ylockers_ms)
     tx = splitter.depositAdminFeesAndSplit(amount, sender=ylockers_ms)
-    assert yvcrvusd.balanceOf(receiver2) > amount / 2
+    assert yvcrvusd.balanceOf(receiver) > amount / 2
 
 
 def test_allocation_scenarios(
