@@ -72,6 +72,7 @@ contract YCRVSplitter {
     address[] public ycrvGauges;
     address[] public partnerGauges;
     mapping(address caller => bool approved) public approvedSplitCallers;
+    bool public onlyTokenized = true;
 
     event AdminFeeSplit(uint ybs, uint treasury, uint remainder);
     event VoteIncentiveSplit(uint ybs, uint treasury, uint remainder);
@@ -264,9 +265,14 @@ contract YCRVSplitter {
     function getAdminFeeSplitRatios(
         BaseBalances memory base
     ) internal view returns (Split memory splits) {
-        splits.ybsRatio =
-            (PRECISION * base.ybs) /
-            (base.veTotal - base.untokenized);
+        if (onlyTokenized) {
+            splits.ybsRatio =
+                (PRECISION * base.ybs) /
+                (base.veTotal - base.untokenized);
+        } else {
+            splits.ybsRatio = (PRECISION * base.ybs) / (base.veTotal);
+        }
+
         splits.remainderRatio = PRECISION - (splits.ybsRatio);
     }
 
@@ -418,6 +424,10 @@ contract YCRVSplitter {
         bool _approved
     ) external onlyOwner {
         approvedSplitCallers[_caller] = _approved;
+    }
+
+    function setOnlyTokenized(bool _onlyTokenized) external onlyOwner {
+        onlyTokenized = _onlyTokenized;
     }
 
     function _getProxy() internal returns (IProxy) {
