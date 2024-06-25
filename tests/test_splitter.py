@@ -77,6 +77,7 @@ def test_splitter(
     new_fee_distributor.checkpoint_token(sender=dev)
     tx = splitter.executeSplit(sender=gov)
     gas = tx.gas_used
+    ve = Contract('0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2')
     print(f'⛽⛽⛽⛽ 1 Execute Split: {gas:,}')
 
     transfers = list(tx.decode_logs(crvusd.Transfer))
@@ -116,13 +117,23 @@ def test_splitter(
 
     # Manual Admin fee Split
     # Give CRVUSD to ylockers and perform a deposit and split
+    crvusd.transfer(fee_burner, amount, sender=crvusd_whale)
     crvusd.transfer(ylockers_ms, amount, sender=crvusd_whale)
     crvusd.approve(splitter, 2**256 - 1, sender=ylockers_ms)
     tx = splitter.depositAdminFeesAndSplit(amount, sender=ylockers_ms)
     gas = tx.gas_used
     print(f'⛽⛽⛽⛽ 2 depositAdminFeesAndSplit: {gas:,}')
     assert yvcrvusd.balanceOf(receiver) > amount / 2
+    assert yvcrvusd.balanceOf(splitter) < 10  # Some dust may exist
 
+    transfers = list(tx.decode_logs(crvusd.Transfer))
+    for t in transfers:
+        print(
+            CONTRACT_NAMES.get(t.contract_address, t.contract_address), 
+            CONTRACT_NAMES.get(t.sender, t.sender), 
+            CONTRACT_NAMES.get(t.receiver, t.receiver), 
+            f"{t.value/10**18:,.2f}"
+        )
 
 def test_allocation_scenarios(
     dev,

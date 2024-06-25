@@ -176,5 +176,6 @@ def top_up_curve_fee_distributor(
         new_fee_distributor.checkpoint_token(sender=dev)
         chain.pending_timestamp += WEEK
         chain.mine()
+        # new_fee_distributor.checkpoint_token(sender=dev)
 
     yield top_up_curve_fee_distributor

@@ -201,7 +201,6 @@ contract YCRVSplitter {
         
         uint incentiveAmount = CRVUSD.balanceOf(FEE_BURNER);
         uint total = incentiveAmount + _adminFeeAmount;
-        
 
         if (total == 0) return;
         if (incentiveAmount != 0) {

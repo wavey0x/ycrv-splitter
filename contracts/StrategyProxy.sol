@@ -1,36 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
-import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
-import "./interfaces/yearn/IProxy.sol";
-import "./interfaces/curve/FeeDistribution.sol";
-import "./interfaces/curve/Gauge.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-library SafeProxy {
-    function safeExecute(
-        IProxy proxy,
-        address to,
-        uint256 value,
-        bytes memory data
-    ) internal {
-        (bool success, ) = proxy.execute(to, value, data);
-        require(success);
-    }
-}
 
-interface VeCRV {
-    function increase_unlock_time(uint256 _time) external;
-    function locked__end(address user) external returns (uint);
-}
-
-interface IMetaRegistry {
-    function get_pool_from_lp_token(address _lp) external view returns (address);
-}
-
-interface IGaugeController {
-    function gauge_types(address _gauge) external view returns (int128);
-}
+import {IEscrow, IGauge, IFeeDistribution, IMetaRegistry, IGaugeController} from "./interfaces/Curve.sol";
+import {IProxy, SafeProxy} from "./interfaces/IProxy.sol";
 
 contract StrategyProxy {
     using SafeERC20 for IERC20;
@@ -52,10 +29,10 @@ contract StrategyProxy {
     IERC20 public constant crvUSD = IERC20(0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E);
 
     /// @notice Curve's fee distributor contract.
-    FeeDistribution public constant feeDistribution = FeeDistribution(0xD16d5eC345Dd86Fb63C6a9C43c517210F1027914);
+    IFeeDistribution public constant feeDistribution = IFeeDistribution(0xD16d5eC345Dd86Fb63C6a9C43c517210F1027914);
 
     /// @notice Curve's vote-escrowed Curve address.
-    VeCRV public constant veCRV  = VeCRV(0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2);
+    IEscrow public constant veCRV  = IEscrow(0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2);
 
     /// @notice Curve's meta-registry. Can pull data from the many existing curve registries.
     IMetaRegistry public constant metaRegistry = IMetaRegistry(0xF98B45FA17DE75FB1aD0e7aFD971b0ca00e379fC);
@@ -126,6 +103,7 @@ contract StrategyProxy {
     /// @param _recipient Address to approve for fees.
     function setAdminFeeRecipient(address _recipient) external {
         require(msg.sender == governance, "!governance");
+        require(_recipient != address(0), "zero address");
         adminFeeRecipient = _recipient;
         emit AdminFeeRecipientSet(_recipient);
     }
@@ -214,7 +192,7 @@ contract StrategyProxy {
     function voteMany(address[] calldata _gauges, uint256[] calldata _weights) external {
         require(msg.sender == governance || voters[msg.sender], "!voter");
         require(_gauges.length == _weights.length, "!mismatch");
-        for(uint256 i = 0; i < _gauges.length; i++) {
+        for (uint256 i = 0; i < _gauges.length; i++) {
             _vote(_gauges[i], _weights[i]);
         }
     }
@@ -285,22 +263,25 @@ contract StrategyProxy {
     /// @dev Admin fees become available every Thursday at 00:00 UTC
     function claimAdminFees() external returns (uint) {
         require(msg.sender == adminFeeRecipient, "!authorized");
-        _claimAdminFees();
-        return _transferBalance(crvUSD, adminFeeRecipient);
+        return _claimAdminFees(adminFeeRecipient);
     }
 
     /// @notice Allow governance to claim weekly admin fees from Curve fee distributor.
-    function forceClaimAdminFees(address _recipient) external returns (uint) {
+    function claimAdminFeesTo(address _recipient) external returns (uint) {
         require(msg.sender == governance, "!governance");
-        _claimAdminFees();
-        return _transferBalance(crvUSD, _recipient);
+        return _claimAdminFees(_recipient);
     }
 
-    function _claimAdminFees() internal {
-        if (canClaim()) {
-            address p = address(proxy);
-            feeDistribution.claim_many([p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]);
+    function _claimAdminFees(address _recipient) internal returns (uint) {
+        if (!canClaim()) return 0;
+        address p = address(proxy);
+        uint startBalance = crvUSD.balanceOf(p);
+
+        for (uint i; i < 10; i++) { // @dev max 10 tries is up to 500 weeks of history.
+            feeDistribution.claim(p);
+            if (crvUSD.balanceOf(p) > startBalance) break;
         }
+        return _transferBalance(crvUSD, _recipient);
     }
 
     /// @notice Cast a DAO vote
@@ -365,13 +346,13 @@ contract StrategyProxy {
     // use this internal function to eliminate the need for transfers when claiming extra rewards
     function _claimRewards(address _gauge) internal returns (bool) {
         require(strategies[_gauge] == msg.sender, "!strategy");
-        try Gauge(_gauge).rewards_receiver(address(proxy)) returns (address receiver) {
+        try IGauge(_gauge).rewards_receiver(address(proxy)) returns (address receiver) {
             require(receiver == msg.sender, "strategy not reward receiver"); // Reverts txn if fails.
         }
         catch {
             return false;
         }
-        Gauge(_gauge).claim_rewards(address(proxy));
+        IGauge(_gauge).claim_rewards(address(proxy));
         return true;
     }
 
