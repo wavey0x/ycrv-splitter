@@ -64,7 +64,7 @@ contract YCRVSplitter {
     uint public ybsVoteIncentiveRatio = 9e17;
     address public owner = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52;
     address public guardian = 0x4444AAAACDBa5580282365e25b16309Bd770ce4a;
-    Recipients recipients;
+    Recipients public recipients;
     uint public ycrvGaugesLength;
     uint public partnerGaugesLength;
     uint public discretionaryGaugesLength;
