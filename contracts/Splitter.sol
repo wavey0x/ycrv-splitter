@@ -191,12 +191,9 @@ contract YCRVSplitter {
             REWARD_TOKEN.transfer(recipients.treasury, splits.treasuryRatio);
         }
         if (splits.remainderRatio > 0) {
-            splits.remainderRatio =
-                (splits.remainderRatio * amount) /
-                PRECISION;
             REWARD_TOKEN.transfer(
                 recipients.remainderTarget,
-                splits.remainderRatio
+                REWARD_TOKEN.balanceOf(address(this))
             );
         }
         emit VoteIncentiveSplit(
@@ -228,12 +225,9 @@ contract YCRVSplitter {
             REWARD_TOKEN.transfer(recipients.treasury, splits.treasuryRatio);
         }
         if (splits.remainderRatio > 0) {
-            splits.remainderRatio =
-                (splits.remainderRatio * _amount) /
-                PRECISION;
             REWARD_TOKEN.transfer(
                 recipients.remainderTarget,
-                splits.remainderRatio
+                REWARD_TOKEN.balanceOf(address(this))
             );
         }
         emit AdminFeeSplit(
