@@ -299,7 +299,7 @@ contract YCRVSplitter {
 
     function getAdminFeeSplitRatios(
         BaseBalances memory base
-    ) internal view returns (Split memory splits) {
+    ) public view returns (Split memory splits) {
         if (onlyTokenized) {
             splits.ybsRatio =
                 (PRECISION * base.ybs) /
@@ -313,7 +313,7 @@ contract YCRVSplitter {
 
     function getVoteIncentiveSplitRatios(
         BaseBalances memory base
-    ) internal view returns (Split memory splits) {
+    ) public view returns (Split memory splits) {
         uint nonVoteIncentiveVotes = getDiscretionaryVotes() +
             getYcrvVotes() +
             getPartnerVotes();
@@ -362,23 +362,23 @@ contract YCRVSplitter {
         return sumGaugeBias(ycrvGauges);
     }
 
-    function unmigrated() internal view returns (uint) {
+    function unmigrated() public view returns (uint) {
         uint migrated = YVECRV.balanceOf(address(YCRV));
         return YVECRV.totalSupply() - migrated;
     }
 
-    function ybsBalance() internal view returns (uint) {
+    function ybsBalance() public view returns (uint) {
         return (YCRV.balanceOf(address(YBS)) + YCRV.balanceOf(address(VAULT)));
     }
 
-    function yearnVeBalance() internal view returns (uint) {
+    function yearnVeBalance() public view returns (uint) {
         return IERC20(VE).balanceOf(VOTER);
     }
 
     /// @dev Sum all active bias (veCRV contributed by Yearn) for a list of gauges.
     function sumGaugeBias(
         address[] memory gauges
-    ) internal view returns (uint) {
+    ) public view returns (uint) {
         uint biasTotal;
         uint currentWeekTimestamp = getCurrentWeekStartTime();
         for (uint i; i < gauges.length; i++) {
@@ -391,7 +391,7 @@ contract YCRVSplitter {
         return biasTotal;
     }
 
-    function getCurrentWeekStartTime() internal view returns (uint) {
+    function getCurrentWeekStartTime() public view returns (uint) {
         return (block.timestamp / 1 weeks) * 1 weeks;
     }
 
