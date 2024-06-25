@@ -17,6 +17,19 @@ df = pd.DataFrame(
     ]
 )
 
+CONTRACT_NAMES = {
+    '0x794f80E899c772de9E326eC83cCfD8D94e208B49': '0x Splits',
+    '0x2e13f7644014F6E934E314F0371585845de7B986': 'Receiver',
+    '0xf4e55515952BdAb2aeB4010f777E802D61eB384f': 'Splitter',
+    '0x93A62dA5a14C80f265DAbC077fCEE437B1a0Efde': 'Treasury',
+    '0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E': 'crvUSD',
+    '0xBF319dDC2Edc1Eb6FDf9910E39b37Be221C8805F': 'yvcrvUSD',
+    '0xD16d5eC345Dd86Fb63C6a9C43c517210F1027914': 'Curve Fee Distro',
+    '0x47C4f7534995a50B5fa13ee49852B212Ea7d23eE': 'yFee Burner',
+    '0x0000000000000000000000000000000000000000': 'ZERO_ADDRESS',
+    '0xF147b8125d2ef93FB6965Db97D6746952a133934': 'yVoter',
+}
+
 
 def test_splitter(
     dev,
@@ -63,6 +76,8 @@ def test_splitter(
 
     new_fee_distributor.checkpoint_token(sender=dev)
     tx = splitter.executeSplit(sender=gov)
+    gas = tx.gas_used
+    print(f'⛽⛽⛽⛽ 1 Execute Split: {gas:,}')
 
     transfers = list(tx.decode_logs(crvusd.Transfer))
     splits = list(tx.decode_logs(splitter.VoteIncentiveSplit))
@@ -82,7 +97,12 @@ def test_splitter(
     print(f"Admin Fees {total_admin_fees:,.2f}")
     print(f"Vote Incentives {total_vote_incentives:,.2f}")
     for t in transfers:
-        print(t.contract_address, t.sender, t.receiver, f"{t.value/10**18:,.2f}")
+        print(
+            CONTRACT_NAMES.get(t.contract_address, t.contract_address), 
+            CONTRACT_NAMES.get(t.sender, t.sender), 
+            CONTRACT_NAMES.get(t.receiver, t.receiver), 
+            f"{t.value/10**18:,.2f}"
+        )
 
     total_rewards = yvcrvusd.balanceOf(receiver)
 
@@ -99,6 +119,8 @@ def test_splitter(
     crvusd.transfer(ylockers_ms, amount, sender=crvusd_whale)
     crvusd.approve(splitter, 2**256 - 1, sender=ylockers_ms)
     tx = splitter.depositAdminFeesAndSplit(amount, sender=ylockers_ms)
+    gas = tx.gas_used
+    print(f'⛽⛽⛽⛽ 2 depositAdminFeesAndSplit: {gas:,}')
     assert yvcrvusd.balanceOf(receiver) > amount / 2
 
 
