@@ -285,8 +285,7 @@ contract YCRVSplitter {
         base.unmigrated = unmigrated();
         base.untokenized =
             base.veTotal -
-            recognizedPositions -
-            base.loose -
+            ycrvTotalSupply -
             base.unmigrated;
         return base;
     }
