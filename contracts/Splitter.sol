@@ -194,6 +194,7 @@ contract YCRVSplitter {
         Split memory adminFeeSplits,
         Split memory voteIncentiveSplits
     ) internal {
+        incentiveAmount = incentiveAmount > PRECISION ? incentiveAmount : 0;
         uint total = incentiveAmount + adminFeeAmount;
 
         if (total == 0) return;
