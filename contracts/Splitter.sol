@@ -250,9 +250,7 @@ contract YCRVSplitter {
     }
 
     function _claimAdminFees() internal returns (uint) {
-        IProxy proxy = _getProxy();
-        if (!proxy.canClaim()) return 0;
-        return proxy.claimAdminFees();
+        return _getProxy().claimAdminFees();
     }
 
     function _sendAdminFees(

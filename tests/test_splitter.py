@@ -45,6 +45,7 @@ def test_splitter(
     receiver,
     new_fee_distributor,
     top_up_curve_fee_distributor,
+    voter,
 ):
     admin_split = splitter.getSplits().adminFeeSplits
     voteIncentive_split = splitter.getSplits().voteIncentiveSplits
@@ -125,6 +126,21 @@ def test_splitter(
     assert yvcrvusd.balanceOf(receiver) > amount / 2
     assert yvcrvusd.balanceOf(splitter) < 10  # Some dust may exist
 
+    transfers = list(tx.decode_logs(crvusd.Transfer))
+    for t in transfers:
+        print(
+            CONTRACT_NAMES.get(t.contract_address, t.contract_address), 
+            CONTRACT_NAMES.get(t.sender, t.sender), 
+            CONTRACT_NAMES.get(t.receiver, t.receiver), 
+            f"{t.value/10**18:,.2f}"
+        )
+    
+    crvusd.transfer(voter, amount, sender=crvusd_whale)
+    tx = splitter.executeSplit(sender=gov)
+    gas = tx.gas_used
+    print(f'⛽⛽⛽⛽ 3 executeSplit: {gas:,}')
+    assert yvcrvusd.balanceOf(receiver) > amount / 2
+    assert yvcrvusd.balanceOf(splitter) < 10  # Some dust may exist
     transfers = list(tx.decode_logs(crvusd.Transfer))
     for t in transfers:
         print(

@@ -347,14 +347,16 @@ contract StrategyProxy {
     }
 
     function _claimAdminFees(address _recipient) internal returns (uint) {
-        if (!canClaim()) return 0;
         address p = address(proxy);
-        uint startBalance = crvUSD.balanceOf(p);
+        uint balance = crvUSD.balanceOf(p);
+        if (!canClaim()) {
+            return balance > 1e18 ? _transferBalance(crvUSD, _recipient) : 0;
+        }
 
         for (uint i; i < 10; i++) {
             // @dev max 10 tries is up to 500 weeks of history.
             feeDistribution.claim(p);
-            if (crvUSD.balanceOf(p) > startBalance) break;
+            if (crvUSD.balanceOf(p) > balance) break;
         }
         return _transferBalance(crvUSD, _recipient);
     }
