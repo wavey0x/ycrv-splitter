@@ -150,6 +150,14 @@ def test_splitter(
             f"{t.value/10**18:,.2f}"
         )
 
+    tx = splitter.executeSplit(sender=gov)
+    gas = tx.gas_used
+    print(f'⛽⛽⛽⛽ 4 executeSplit: {gas:,}')
+    assert yvcrvusd.balanceOf(receiver) > amount / 2
+    assert yvcrvusd.balanceOf(splitter) < 10  # Some dust may exist
+    transfers = list(tx.decode_logs(crvusd.Transfer))
+    assert len(transfers) == 0
+
 def test_allocation_scenarios(
     dev,
     splitter,
