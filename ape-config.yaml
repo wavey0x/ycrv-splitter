@@ -29,4 +29,4 @@ foundry:
   fork:
     ethereum:
       mainnet:
-        upstream_provider: alchemy
+        upstream_provider: ${RPC_1}

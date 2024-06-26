@@ -173,9 +173,20 @@ def top_up_curve_fee_distributor(
         crvusd.transfer(new_fee_distributor, 100_000 * 10**18, sender=crvusd_whale)
         if not new_fee_distributor.can_checkpoint_token():
             new_fee_distributor.toggle_allow_checkpoint_token(sender=curve_dao)
-        new_fee_distributor.checkpoint_token(sender=dev)
+        
+        if can_checkpoint(new_fee_distributor, chain.pending_timestamp):
+            new_fee_distributor.checkpoint_token(sender=dev)
         chain.pending_timestamp += WEEK
         chain.mine()
+        if can_checkpoint(new_fee_distributor, chain.pending_timestamp):
+            new_fee_distributor.checkpoint_token(sender=dev)
         # new_fee_distributor.checkpoint_token(sender=dev)
 
     yield top_up_curve_fee_distributor
+
+def can_checkpoint(new_fee_distributor, ts):
+    can = new_fee_distributor.can_checkpoint_token()
+    next = new_fee_distributor.last_token_time() + DAY
+    if can and ts > next:
+        return True
+    return False

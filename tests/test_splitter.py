@@ -74,7 +74,10 @@ def test_splitter(
     #     chain.pending_timestamp += WEEK + DAY
     #     chain.mine()
 
-    new_fee_distributor.checkpoint_token(sender=dev)
+
+    if can_checkpoint(new_fee_distributor, chain.pending_timestamp):
+        new_fee_distributor.checkpoint_token(sender=dev)
+        
     tx = splitter.executeSplit(sender=gov)
     gas = tx.gas_used
     ve = Contract('0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2')
@@ -353,3 +356,10 @@ def export_to_csv(file_path):
     global df
     df.to_csv(file_path, index=False)
     print(f"Data exported to {file_path}")
+
+def can_checkpoint(new_fee_distributor, ts):
+    can = new_fee_distributor.can_checkpoint_token()
+    next = new_fee_distributor.last_token_time() + DAY
+    if can and ts > next:
+        return True
+    return False

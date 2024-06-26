@@ -139,23 +139,13 @@ contract YCRVSplitter {
             Split memory adminFeeSplits,
             Split memory voteIncentiveSplits
         ) = getSplits();
-
-        uint adminFeeAmount = _claimAdminFees();
-        uint incentiveAmount = CRVUSD.balanceOf(FEE_BURNER);
-        uint total = incentiveAmount + adminFeeAmount;
         
-        if (total == 0) return;
-        if (incentiveAmount != 0) {
-            CRVUSD.transferFrom(FEE_BURNER, address(this), incentiveAmount);
-            incentiveAmount = incentiveAmount * PRECISION / total; // Ratio
-        }
-        if (adminFeeAmount != 0) adminFeeAmount = PRECISION - incentiveAmount; // Ratio
-
-        total = _depositToVault(total);
-
-        Recipients memory _recipients = recipients;
-        _sendAdminFees(total * adminFeeAmount / PRECISION, adminFeeSplits, _recipients);
-        _sendVoteIncentives(total * incentiveAmount / PRECISION, voteIncentiveSplits, _recipients);
+        _splitDepositAndSend(
+            _claimAdminFees(), 
+            CRVUSD.balanceOf(FEE_BURNER),
+            adminFeeSplits,
+            voteIncentiveSplits
+        );
     }
 
     /// @notice Supply manual split values to override on-chain claculations.
@@ -173,21 +163,12 @@ contract YCRVSplitter {
             voteIncentiveSplits.treasuryRatio;
         require(total == PRECISION, "voteIncentiveSplits sum !100%");
 
-        uint adminFeeAmount = _claimAdminFees();
-        uint incentiveAmount = CRVUSD.balanceOf(FEE_BURNER);
-        total = incentiveAmount + adminFeeAmount;
-
-        if (total == 0) return;
-        if (incentiveAmount != 0) {
-            CRVUSD.transferFrom(FEE_BURNER, address(this), incentiveAmount);
-            incentiveAmount = incentiveAmount * PRECISION / total; // Ratio
-        }
-        if (adminFeeAmount != 0) adminFeeAmount = PRECISION - incentiveAmount; // Ratio
-        total = _depositToVault(total);
-
-        Recipients memory _recipients = recipients;
-        _sendAdminFees(total * adminFeeAmount / PRECISION, adminFeeSplits, _recipients);
-        _sendVoteIncentives(total * incentiveAmount / PRECISION, voteIncentiveSplits, _recipients);
+        _splitDepositAndSend(
+            _claimAdminFees(), 
+            CRVUSD.balanceOf(FEE_BURNER),
+            adminFeeSplits,
+            voteIncentiveSplits
+        );
     }
 
     /// @dev Allow admins to manually push crvUSD as admin fees. Nice to have in event
@@ -199,20 +180,32 @@ contract YCRVSplitter {
             Split memory voteIncentiveSplits
         ) = getSplits();
         
-        uint incentiveAmount = CRVUSD.balanceOf(FEE_BURNER);
-        uint total = incentiveAmount + _adminFeeAmount;
+        _splitDepositAndSend(
+            _adminFeeAmount, 
+            CRVUSD.balanceOf(FEE_BURNER),
+            adminFeeSplits,
+            voteIncentiveSplits
+        );
+    }
+
+    function _splitDepositAndSend(
+        uint adminFeeAmount, 
+        uint incentiveAmount,
+        Split memory adminFeeSplits,
+        Split memory voteIncentiveSplits
+    ) internal {
+        uint total = incentiveAmount + adminFeeAmount;
 
         if (total == 0) return;
         if (incentiveAmount != 0) {
             CRVUSD.transferFrom(FEE_BURNER, address(this), incentiveAmount);
             incentiveAmount = incentiveAmount * PRECISION / total; // Ratio
         }
-        if (_adminFeeAmount != 0) _adminFeeAmount = PRECISION - incentiveAmount; // Ratio
-
+        if (adminFeeAmount != 0) adminFeeAmount = PRECISION - incentiveAmount; // Ratio
         total = _depositToVault(total);
 
         Recipients memory _recipients = recipients;
-        _sendAdminFees(total * _adminFeeAmount / PRECISION, adminFeeSplits, _recipients);
+        _sendAdminFees(total * adminFeeAmount / PRECISION, adminFeeSplits, _recipients);
         _sendVoteIncentives(total * incentiveAmount / PRECISION, voteIncentiveSplits, _recipients);
     }
 
