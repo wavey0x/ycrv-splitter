@@ -22,9 +22,15 @@ interface ICurveFi {
         uint256 min_mint_amount
     ) external;
 
-    function remove_liquidity_imbalance(uint256[4] calldata amounts, uint256 max_burn_amount) external;
+    function remove_liquidity_imbalance(
+        uint256[4] calldata amounts,
+        uint256 max_burn_amount
+    ) external;
 
-    function remove_liquidity(uint256 _amount, uint256[4] calldata amounts) external;
+    function remove_liquidity(
+        uint256 _amount,
+        uint256[4] calldata amounts
+    ) external;
 
     function remove_liquidity_one_coin(
         uint256 _token_amount,
@@ -56,11 +62,7 @@ interface ICurveFi {
 }
 
 interface Zap {
-    function remove_liquidity_one_coin(
-        uint256,
-        int128,
-        uint256
-    ) external;
+    function remove_liquidity_one_coin(uint256, int128, uint256) external;
 }
 
 interface IGauge {
@@ -86,7 +88,9 @@ interface IEscrow {
 }
 
 interface IMetaRegistry {
-    function get_pool_from_lp_token(address _lp) external view returns (address);
+    function get_pool_from_lp_token(
+        address _lp
+    ) external view returns (address);
 }
 
 interface IGaugeController {

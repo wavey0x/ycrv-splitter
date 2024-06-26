@@ -141,9 +141,8 @@ contract YCRVSplitter {
             Split memory adminFeeSplits,
             Split memory voteIncentiveSplits
         ) = getSplits();
-        
         _splitDepositAndSend(
-            _claimAdminFees(), 
+            _claimAdminFees(),
             CRVUSD.balanceOf(FEE_BURNER),
             adminFeeSplits,
             voteIncentiveSplits
@@ -166,7 +165,7 @@ contract YCRVSplitter {
         require(total == PRECISION, "voteIncentiveSplits sum !100%");
 
         _splitDepositAndSend(
-            _claimAdminFees(), 
+            _claimAdminFees(),
             CRVUSD.balanceOf(FEE_BURNER),
             adminFeeSplits,
             voteIncentiveSplits
@@ -175,15 +174,17 @@ contract YCRVSplitter {
 
     /// @dev Allow admins to manually push crvUSD as admin fees. Nice to have in event
     ///      where admin fees might flow to old receiver.
-    function depositAdminFeesAndSplit(uint _adminFeeAmount) external onlyAdmins {
+    function depositAdminFeesAndSplit(
+        uint _adminFeeAmount
+    ) external onlyAdmins {
         CRVUSD.transferFrom(msg.sender, address(this), _adminFeeAmount);
         (
             Split memory adminFeeSplits,
             Split memory voteIncentiveSplits
         ) = getSplits();
-        
+
         _splitDepositAndSend(
-            _adminFeeAmount, 
+            _adminFeeAmount,
             CRVUSD.balanceOf(FEE_BURNER),
             adminFeeSplits,
             voteIncentiveSplits
@@ -191,7 +192,7 @@ contract YCRVSplitter {
     }
 
     function _splitDepositAndSend(
-        uint adminFeeAmount, 
+        uint adminFeeAmount,
         uint incentiveAmount,
         Split memory adminFeeSplits,
         Split memory voteIncentiveSplits
@@ -202,14 +203,22 @@ contract YCRVSplitter {
         if (total == 0) return;
         if (incentiveAmount != 0) {
             CRVUSD.transferFrom(FEE_BURNER, address(this), incentiveAmount);
-            incentiveAmount = incentiveAmount * PRECISION / total; // Ratio
+            incentiveAmount = (incentiveAmount * PRECISION) / total; // Ratio
         }
         if (adminFeeAmount != 0) adminFeeAmount = PRECISION - incentiveAmount; // Ratio
         total = _depositToVault(total);
 
         Recipients memory _recipients = recipients;
-        _sendAdminFees(total * adminFeeAmount / PRECISION, adminFeeSplits, _recipients);
-        _sendVoteIncentives(total * incentiveAmount / PRECISION, voteIncentiveSplits, _recipients);
+        _sendAdminFees(
+            (total * adminFeeAmount) / PRECISION,
+            adminFeeSplits,
+            _recipients
+        );
+        _sendVoteIncentives(
+            (total * incentiveAmount) / PRECISION,
+            voteIncentiveSplits,
+            _recipients
+        );
     }
 
     function _sendVoteIncentives(
@@ -261,7 +270,9 @@ contract YCRVSplitter {
             REWARD_TOKEN.transfer(_recipients.treasury, splits.treasuryRatio);
         }
         if (splits.remainderRatio > 0) {
-            splits.remainderRatio = (splits.remainderRatio * _amount) / PRECISION;
+            splits.remainderRatio =
+                (splits.remainderRatio * _amount) /
+                PRECISION;
             REWARD_TOKEN.transfer(
                 _recipients.remainderTarget,
                 splits.remainderRatio
@@ -285,10 +296,7 @@ contract YCRVSplitter {
         require(recognizedPositions < ycrvTotalSupply, "PartnerBalanceTooHigh");
         base.loose = ycrvTotalSupply - recognizedPositions;
         base.unmigrated = unmigrated();
-        base.untokenized =
-            base.veTotal -
-            ycrvTotalSupply -
-            base.unmigrated;
+        base.untokenized = base.veTotal - ycrvTotalSupply - base.unmigrated;
         return base;
     }
 
@@ -371,9 +379,7 @@ contract YCRVSplitter {
     }
 
     /// @dev Sum all active bias (veCRV contributed by Yearn) for a list of gauges.
-    function sumGaugeBias(
-        address[] memory gauges
-    ) public view returns (uint) {
+    function sumGaugeBias(address[] memory gauges) public view returns (uint) {
         uint biasTotal;
         uint currentWeekTimestamp = getCurrentWeekStartTime();
         for (uint i; i < gauges.length; i++) {
