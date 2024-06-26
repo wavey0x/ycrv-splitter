@@ -76,6 +76,8 @@ contract YCRVSplitter {
 
     event AdminFeeSplit(uint ybs, uint treasury, uint remainder);
     event VoteIncentiveSplit(uint ybs, uint treasury, uint remainder);
+    event OwnerSet(address indexed owner);
+    event GuardianSet(address indexed guardian);
 
     struct BaseBalances {
         uint ybs;
@@ -455,6 +457,20 @@ contract YCRVSplitter {
 
     function setOnlyTokenized(bool _onlyTokenized) external onlyOwner {
         onlyTokenized = _onlyTokenized;
+    }
+
+    function setOwner(address _owner) external onlyOwner {
+        require(_owner != address(0), "zero address");
+        require(_owner != owner, "already set");
+        owner = _owner;
+        emit OwnerSet(_owner);
+    }
+
+    function setGuardian(address _guardian) external onlyOwner {
+        require(_guardian != address(0), "zero address");
+        require(_guardian != guardian, "already set");
+        guardian = _guardian;
+        emit GuardianSet(_guardian);
     }
 
     function _getProxy() internal returns (IProxy) {

@@ -1,6 +1,7 @@
 from ape import chain, accounts, Contract
 import ape
 import pandas as pd
+from ape.utils import ZERO_ADDRESS
 
 DAY = 24 * 60 * 60
 WEEK = DAY * 7
@@ -30,6 +31,29 @@ CONTRACT_NAMES = {
     '0xF147b8125d2ef93FB6965Db97D6746952a133934': 'yVoter',
 }
 
+def test_change_roles (
+    splitter,
+    dev,
+    ylockers_ms,
+    gov,
+):
+    
+    with ape.reverts():
+        # Should revert due to duplicates
+        tx = splitter.setGuardian(ylockers_ms, sender=ylockers_ms)
+        tx = splitter.setGuardian(ZERO_ADDRESS, sender=gov)
+
+    tx = splitter.setGuardian(dev, sender=gov)
+    assert splitter.guardian() == dev.address
+    
+    with ape.reverts():
+        # Should revert due to duplicates
+        tx = splitter.setOwner(ylockers_ms, sender=ylockers_ms)
+        tx = splitter.setGuardian(ZERO_ADDRESS, sender=gov)
+
+    tx = splitter.setOwner(ylockers_ms, sender=gov)
+    assert splitter.owner() == ylockers_ms.address
+
 
 def test_splitter(
     dev,
@@ -42,11 +66,7 @@ def test_splitter(
     reward_distributor,
     fee_burner,
     receiver,
-    reward_token,
     new_fee_distributor,
-    curve_dao,
-    voter,
-    mock_proxy,
     top_up_curve_fee_distributor,
 ):
     admin_split = splitter.getSplits().adminFeeSplits
@@ -77,7 +97,7 @@ def test_splitter(
 
     if can_checkpoint(new_fee_distributor, chain.pending_timestamp):
         new_fee_distributor.checkpoint_token(sender=dev)
-        
+
     tx = splitter.executeSplit(sender=gov)
     gas = tx.gas_used
     ve = Contract('0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2')
