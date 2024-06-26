@@ -31,29 +31,6 @@ CONTRACT_NAMES = {
     '0xF147b8125d2ef93FB6965Db97D6746952a133934': 'yVoter',
 }
 
-def test_change_roles (
-    splitter,
-    dev,
-    ylockers_ms,
-    gov,
-):
-    
-    with ape.reverts():
-        # Should revert due to duplicates
-        tx = splitter.setGuardian(ylockers_ms, sender=ylockers_ms)
-        tx = splitter.setGuardian(ZERO_ADDRESS, sender=gov)
-
-    tx = splitter.setGuardian(dev, sender=gov)
-    assert splitter.guardian() == dev.address
-    
-    with ape.reverts():
-        # Should revert due to duplicates
-        tx = splitter.setOwner(ylockers_ms, sender=ylockers_ms)
-        tx = splitter.setGuardian(ZERO_ADDRESS, sender=gov)
-
-    tx = splitter.setOwner(ylockers_ms, sender=gov)
-    assert splitter.owner() == ylockers_ms.address
-
 
 def test_splitter(
     dev,
@@ -102,7 +79,6 @@ def test_splitter(
     gas = tx.gas_used
     ve = Contract('0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2')
     print(f'⛽⛽⛽⛽ 1 Execute Split: {gas:,}')
-
     transfers = list(tx.decode_logs(crvusd.Transfer))
     splits = list(tx.decode_logs(splitter.VoteIncentiveSplit))
     splits = splits[0] if len(splits) > 0 else None
@@ -334,6 +310,32 @@ def test_add_invalid_gauge(splitter, gov):
     with ape.reverts():
         # Should revert due to unapproved by curve gov
         tx = splitter.setYCrvGauges(invalid_gauges, sender=gov)
+
+def test_change_roles (
+    splitter,
+    dev,
+    ylockers_ms,
+    gov,
+):
+    
+    with ape.reverts():
+        # Should revert due to duplicates
+        tx = splitter.setGuardian(ylockers_ms, sender=ylockers_ms)
+        tx = splitter.setGuardian(ZERO_ADDRESS, sender=gov)
+
+    tx = splitter.setGuardian(dev, sender=gov)
+    assert splitter.guardian() == dev.address
+    
+    with ape.reverts():
+        # Should revert due to duplicates
+        tx = splitter.setOwner(ylockers_ms, sender=ylockers_ms)
+        tx = splitter.setGuardian(ZERO_ADDRESS, sender=gov)
+
+    tx = splitter.setOwner(ylockers_ms, sender=gov)
+    assert splitter.owner() == ylockers_ms.address
+
+    tx = splitter.setOwner(gov, sender=ylockers_ms)
+    tx = splitter.setGuardian(ylockers_ms, sender=gov)
 
 
 def append_to_dataframe(title, splitter, splits):

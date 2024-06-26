@@ -265,10 +265,7 @@ contract YCRVSplitter {
             splits.ybsRatio = (splits.ybsRatio * _amount) / PRECISION;
             REWARD_TOKEN.transfer(_recipients.ybs, splits.ybsRatio);
         }
-        if (splits.treasuryRatio > 0) {
-            splits.treasuryRatio = (splits.treasuryRatio * _amount) / PRECISION;
-            REWARD_TOKEN.transfer(_recipients.treasury, splits.treasuryRatio);
-        }
+        // Note: Skip splits.treasuryRatio since it is effectively always hardcoded to 0.
         if (splits.remainderRatio > 0) {
             splits.remainderRatio =
                 (splits.remainderRatio * _amount) /
@@ -310,7 +307,6 @@ contract YCRVSplitter {
         } else {
             splits.ybsRatio = (PRECISION * base.ybs) / (base.veTotal);
         }
-
         splits.remainderRatio = PRECISION - (splits.ybsRatio);
     }
 
